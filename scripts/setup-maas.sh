@@ -36,6 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUIDE_DIR="$SCRIPT_DIR/.."
 MANIFESTS_DIR="$GUIDE_DIR/manifests"
 NAMESPACE=redhat-ods-applications
+MAAS_API_NAMESPACE=redhat-ai-gateway-infra
 
 # Colors
 GREEN='\033[0;32m'
@@ -124,6 +125,16 @@ run_cmd() {
 
 should_run() { [ "$FROM_PHASE" -le "$1" ]; }
 
+detect_maas_api_namespace() {
+    local discovered
+    discovered=$(oc get deployments --all-namespaces \
+        -o jsonpath='{range .items[?(@.metadata.name=="maas-api")]}{.metadata.namespace}{"\n"}{end}' \
+        2>/dev/null | sed -n '1p' || true)
+    if [ -n "$discovered" ]; then
+        MAAS_API_NAMESPACE="$discovered"
+    fi
+}
+
 wait_for() {
     local desc="$1"; shift
     local timeout="${1:-120}"; shift
@@ -150,6 +161,8 @@ if ! oc whoami &>/dev/null; then
 fi
 log_info "Cluster: $(oc whoami --show-server)"
 log_info "User:    $(oc whoami)"
+detect_maas_api_namespace
+log_info "maas-api namespace: ${MAAS_API_NAMESPACE}"
 
 # Detect cluster domain (needed by multiple phases)
 CLUSTER_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}' 2>/dev/null || echo "")
@@ -204,7 +217,9 @@ if [ "$HAS_DSC" = true ]; then
     [ "$MAAS_STATE" = "Managed" ] && HAS_MAAS_MANAGED=true
 fi
 oc get deployment postgres -n "$NAMESPACE" &>/dev/null && HAS_POSTGRES=true
-oc get deployment maas-api -n "$NAMESPACE" &>/dev/null && HAS_MAAS_API=true
+MAAS_API_READY_REPLICAS=$(oc get deployment maas-api -n "$MAAS_API_NAMESPACE" \
+    -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+[ "${MAAS_API_READY_REPLICAS:-0}" -ge 1 ] 2>/dev/null && HAS_MAAS_API=true
 oc get tenant -n models-as-a-service &>/dev/null && HAS_TENANT=true
 MODEL_COUNT=$(oc get llminferenceservice -n llm --no-headers 2>/dev/null | wc -l | tr -d ' ' || echo "0")
 [ "$MODEL_COUNT" -gt 0 ] 2>/dev/null && HAS_MODELS=true
@@ -222,7 +237,7 @@ log_info "  Gateway:            $([ "$HAS_GATEWAY" = true ] && echo "exists" || 
 log_info "  DataScienceCluster: $([ "$HAS_DSC" = true ] && echo "exists" || echo "not found")"
 log_info "  modelsAsService:    $([ "$HAS_MAAS_MANAGED" = true ] && echo "Managed" || echo "not managed")"
 log_info "  PostgreSQL:         $([ "$HAS_POSTGRES" = true ] && echo "running" || echo "not deployed")"
-log_info "  maas-api:           $([ "$HAS_MAAS_API" = true ] && echo "running" || echo "not deployed")"
+log_info "  maas-api:           $([ "$HAS_MAAS_API" = true ] && echo "ready" || echo "not ready")"
 log_info "  Tenant CR:          $([ "$HAS_TENANT" = true ] && echo "ready" || echo "not found")"
 log_info "  MetalLB operator:   $([ "$HAS_METALLB" = true ] && echo "installed" || echo "not found")"
 log_info "  Models deployed:    $([ "$HAS_MODELS" = true ] && echo "yes" || echo "no")"
@@ -621,19 +636,21 @@ if should_run 4; then
         TIMEOUT=300
         ELAPSED=0
         while [ $ELAPSED -lt $TIMEOUT ]; do
-            if oc get deployment maas-api -n "$NAMESPACE" &>/dev/null; then
-                log_info "maas-api deployment found"
-                oc rollout status deployment/maas-api -n "$NAMESPACE" --timeout=180s 2>/dev/null || \
-                    log_warn "maas-api rollout did not complete within 180s"
+            detect_maas_api_namespace
+            API_READY_REPLICAS=$(oc get deployment maas-api -n "$MAAS_API_NAMESPACE" \
+                -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+            if [ "${API_READY_REPLICAS:-0}" -ge 1 ] 2>/dev/null; then
+                log_info "maas-api is ready (${API_READY_REPLICAS} replica(s)) in ${MAAS_API_NAMESPACE}"
                 break
             fi
+            log_info "Waiting for maas-api readiness in ${MAAS_API_NAMESPACE}..."
             sleep 10
             ELAPSED=$((ELAPSED + 10))
             if [ $((ELAPSED % 60)) -eq 0 ]; then
                 log_info "Still waiting for maas-api... (${ELAPSED}s)"
             fi
         done
-        [ $ELAPSED -ge $TIMEOUT ] && log_warn "maas-api not found after ${TIMEOUT}s  - operator may still be reconciling"
+        [ $ELAPSED -ge $TIMEOUT ] && log_warn "maas-api not ready after ${TIMEOUT}s in ${MAAS_API_NAMESPACE}  - operator may still be reconciling"
     fi
 
     # Verify Tenant CR
@@ -1071,14 +1088,15 @@ else
     RHOAI_VERSION=$(oc get csv -n redhat-ods-operator -l operators.coreos.com/rhods-operator.redhat-ods-operator= -o jsonpath='{.items[0].spec.version}' 2>/dev/null || echo "unknown")
     GW_STATUS=$(oc get gateway maas-default-gateway -n openshift-ingress \
         -o jsonpath='{.status.conditions[?(@.type=="Programmed")].status}' 2>/dev/null || echo "Unknown")
-    API_READY=$(oc get deployment maas-api -n "$NAMESPACE" \
+    detect_maas_api_namespace
+    API_READY=$(oc get deployment maas-api -n "$MAAS_API_NAMESPACE" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     HEALTH=$(curl -sk -o /dev/null -w '%{http_code}' "${MAAS_URL}/maas-api/health" 2>/dev/null || echo "000")
 
     log_info "RHOAI version: ${RHOAI_VERSION}"
     log_info "MaaS API URL:  ${MAAS_URL}"
     log_info "Gateway:       Programmed=${GW_STATUS}"
-    log_info "maas-api:      ${API_READY} replica(s)"
+    log_info "maas-api:      ${API_READY} replica(s) in ${MAAS_API_NAMESPACE}"
     log_info "Health:        HTTP ${HEALTH}"
 
     if [ "$SKIP_MODELS" = false ] && [ "$HAS_MODELS" = true ] || oc get llminferenceservice -n llm &>/dev/null 2>&1; then

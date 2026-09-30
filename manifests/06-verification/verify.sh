@@ -74,6 +74,7 @@ EOF
 done
 
 NAMESPACE=redhat-ods-applications
+MAAS_API_NAMESPACE=redhat-ai-gateway-infra
 MODEL_NS=llm
 MAAS_NS=models-as-a-service
 MODEL_NAME=facebook-opt-125m-simulated
@@ -201,6 +202,14 @@ if ! oc whoami &>/dev/null; then
 fi
 log_info "Connected to: $(oc whoami --show-server)"
 
+DETECTED_MAAS_API_NAMESPACE=$(oc get deployments --all-namespaces \
+    -o jsonpath='{range .items[?(@.metadata.name=="maas-api")]}{.metadata.namespace}{"\n"}{end}' \
+    2>/dev/null | sed -n '1p' || true)
+if [ -n "$DETECTED_MAAS_API_NAMESPACE" ]; then
+    MAAS_API_NAMESPACE="$DETECTED_MAAS_API_NAMESPACE"
+fi
+log_info "MaaS API namespace: ${MAAS_API_NAMESPACE}"
+
 # Detect cluster domain
 CLUSTER_DOMAIN=$(oc get ingresses.config/cluster -o jsonpath='{.spec.domain}')
 HOST="https://maas.${CLUSTER_DOMAIN}"
@@ -226,11 +235,11 @@ else
 fi
 
 # maas-api
-MAAS_API_READY=$(oc get deployment maas-api -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+MAAS_API_READY=$(oc get deployment maas-api -n "$MAAS_API_NAMESPACE" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
 if [ "${MAAS_API_READY:-0}" -ge 1 ]; then
-    log_pass "maas-api is running ($MAAS_API_READY replica(s))"
+    log_pass "maas-api is running ($MAAS_API_READY replica(s) in ${MAAS_API_NAMESPACE})"
 else
-    log_fail "maas-api not ready"
+    log_fail "maas-api not ready in ${MAAS_API_NAMESPACE}"
 fi
 
 # maas-controller
@@ -249,12 +258,22 @@ else
     log_fail "Authorino not ready"
 fi
 
-# ModelsAsServiceReady
-MAAS_READY=$(oc get datasciencecluster default-dsc -o jsonpath='{.status.conditions[?(@.type=="ModelsAsServiceReady")].status}' 2>/dev/null || echo "Unknown")
+# ModelsAsAServiceReady may appear shortly after the DSC is applied.
+MAAS_READY=""
+for attempt in $(seq 1 12); do
+    MAAS_READY=$(oc get datasciencecluster default-dsc \
+        -o jsonpath='{.status.conditions[?(@.type=="ModelsAsAServiceReady")].status}' 2>/dev/null || echo "Unknown")
+    if [ "$MAAS_READY" = "True" ]; then
+        break
+    fi
+    if [ "$attempt" -lt 12 ]; then
+        sleep 5
+    fi
+done
 if [ "$MAAS_READY" = "True" ]; then
-    log_pass "ModelsAsServiceReady=True"
+    log_pass "ModelsAsAServiceReady=True"
 else
-    log_fail "ModelsAsServiceReady=$MAAS_READY"
+    log_fail "ModelsAsAServiceReady=${MAAS_READY:-NotReported}"
 fi
 
 # Health endpoint (try with --resolve to bypass DNS cache for cloud LB hostnames)
