@@ -14,6 +14,9 @@
 .Observability
 * xref:07-observability.adoc[Phase 7: Observability]
 
+.Load and Deployment Demo
+* xref:09-load-test.adoc[End-to-End Deployment & Rate-Limit Demo]
+
 .External Models
 * xref:08-external-models.adoc[Phase 8: External Models]
 

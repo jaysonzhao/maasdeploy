@@ -39,6 +39,10 @@ Each phase has step-by-step instructions, status gates, and troubleshooting.
 |-------|-------------|------|
 | [7. Observability](https://rh-aiservices-bu.github.io/rhoai-maas-guide/modules/main/07-observability.html) *(optional)* | COO subscription + Gateway telemetry dashboards | 5 min |
 
+### Rate-Limit Load Demo
+
+The [end-to-end deployment and rate-limit runbook](https://rh-aiservices-bu.github.io/rhoai-maas-guide/modules/main/09-load-test.html) covers full-stack setup, a bounded Job that compares free and premium subscriptions, dashboard/log inspection, and cleanup.
+
 ## Automated Setup
 
 A single script runs all phases end-to-end. Each phase is idempotent - re-running skips what is already done.
