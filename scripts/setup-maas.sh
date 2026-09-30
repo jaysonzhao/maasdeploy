@@ -853,7 +853,9 @@ if should_run 7 && [ "$WITH_OBSERVABILITY" = true ]; then
     log_info "Approving COO install plan (pinned to v1.4.0, Manual approval)..."
     if [ "$DRY_RUN" = false ]; then
         for attempt in $(seq 1 30); do
-            PENDING=$(oc get installplan -n openshift-cluster-observability-operator --no-headers 2>/dev/null | grep -v "true" | awk '{print $1}')
+            PENDING=$(oc get installplan -n openshift-cluster-observability-operator \
+                -o custom-columns='NAME:.metadata.name,APPROVED:.spec.approved' --no-headers 2>/dev/null \
+                | awk '$2 == "false" {print $1}' || true)
             if [ -n "$PENDING" ]; then
                 echo "$PENDING" | xargs -I{} oc patch installplan {} -n openshift-cluster-observability-operator \
                     --type=merge -p '{"spec":{"approved":true}}' 2>/dev/null || true
