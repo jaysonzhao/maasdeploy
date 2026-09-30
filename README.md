@@ -13,6 +13,8 @@ Requires OpenShift 4.19+ with cluster-admin access.
 **Full documentation:** https://rh-aiservices-bu.github.io/rhoai-maas-guide/
 **GitHub Repository** https://github.com/rh-aiservices-bu/rhoai-maas-guide
 
+**Agent deployment skill:** [`.claude/skills/install-maas/SKILL.md`](.claude/skills/install-maas/SKILL.md) consolidates installation, observability, external models, verification, and the recurring rate-limit demo.
+
 ## Phases
 
 Each phase has step-by-step instructions, status gates, and troubleshooting.
