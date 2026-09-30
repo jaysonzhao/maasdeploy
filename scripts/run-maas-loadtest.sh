@@ -21,6 +21,7 @@ MODEL_ID="${MAAS_MODEL:-}"
 FREE_SUBSCRIPTION="${MAAS_FREE_SUBSCRIPTION:-${MODEL_REF}-free}"
 PREMIUM_SUBSCRIPTION="${MAAS_PREMIUM_SUBSCRIPTION:-${MODEL_REF}-premium}"
 DURATION_SECONDS="${MAAS_DURATION_SECONDS:-180}"
+API_KEY_TTL="${MAAS_API_KEY_TTL:-2160h}"
 INTERVAL_SECONDS="${MAAS_INTERVAL_SECONDS:-0.5}"
 MAX_TOKENS="${MAAS_MAX_TOKENS:-20}"
 REQUEST_TIMEOUT_SECONDS="${MAAS_REQUEST_TIMEOUT_SECONDS:-2}"
@@ -30,8 +31,8 @@ CURL_OPTIONS=(-sS)
 case "$VERIFY_TLS" in
     false|False|FALSE|0|no|No|NO) CURL_OPTIONS+=(-k) ;;
 esac
-if [[ ! "$DURATION_SECONDS" =~ ^[1-9][0-9]*$ || "$DURATION_SECONDS" -gt 540 ]]; then
-    echo "MAAS_DURATION_SECONDS must be an integer from 1 to 540." >&2
+if [[ ! "$DURATION_SECONDS" =~ ^[1-9][0-9]*$ || "$DURATION_SECONDS" -gt 240 ]]; then
+    echo "MAAS_DURATION_SECONDS must be an integer from 1 to 240 for the five-minute schedule." >&2
     exit 2
 fi
 if [[ ! "$MAX_TOKENS" =~ ^[1-9][0-9]*$ || "$MAX_TOKENS" -gt 4096 ]]; then
@@ -79,7 +80,7 @@ metadata:
     app.kubernetes.io/part-of: maas-load-test
 YAML
 if oc get secret maas-loadtest-keys -n maas-load-test >/dev/null 2>&1; then
-    echo "A prior maas-loadtest-keys Secret exists. Run scripts/cleanup-maas-loadtest.sh before starting another demo." >&2
+    echo "A prior maas-loadtest-keys Secret exists. Run scripts/cleanup-maas-loadtest.sh before replacing the CronJob credentials." >&2
     exit 1
 fi
 
@@ -120,8 +121,8 @@ create_key() {
     local id_file="$5"
     local body_file="$6"
     local status
-    jq -cn --arg name "$name" --arg subscription "$subscription" \
-        '{name:$name,description:"Short-lived MaaS rate-limit demo",subscription:$subscription,expiresIn:"1h",ephemeral:true}' \
+    jq -cn --arg name "$name" --arg subscription "$subscription" --arg expires_in "$API_KEY_TTL" \
+        '{name:$name,description:"Recurring MaaS rate-limit load demo",subscription:$subscription,expiresIn:$expires_in}' \
         > "$body_file"
     status="$(curl "${CURL_OPTIONS[@]}" -o "$response_file" -w '%{http_code}' \
         -X POST "${MAAS_BASE_URL}/maas-api/v1/api-keys" \
@@ -142,7 +143,7 @@ create_key() {
     }
 }
 
-echo "Creating one-hour API keys for '${FREE_SUBSCRIPTION}' and '${PREMIUM_SUBSCRIPTION}'..."
+echo "Creating regular API keys for '${FREE_SUBSCRIPTION}' and '${PREMIUM_SUBSCRIPTION}' (expires in ${API_KEY_TTL})..."
 create_key "maas-load-free-$(date +%s)" "$FREE_SUBSCRIPTION" \
     "$WORK_DIR/free-response.json" "$WORK_DIR/FREE_API_KEY" "$WORK_DIR/FREE_API_KEY_ID" "$WORK_DIR/free-request.json"
 FREE_KEY_CREATED="$(cat "$WORK_DIR/FREE_API_KEY_ID")"
@@ -175,8 +176,8 @@ if ! oc apply -k "${REPO_ROOT}/manifests/09-load-test" >/dev/null; then
 fi
 FREE_KEY_CREATED=""
 PREMIUM_KEY_CREATED=""
-echo "Started Job maas-rate-limit-demo in namespace maas-load-test."
-echo "Free-tier limit: 100 tokens/min; premium-tier limit: 100000 tokens/min."
-echo "Watch logs with: oc logs -f job/maas-rate-limit-demo -n maas-load-test -c free-tier"
-echo "Premium logs:    oc logs -f job/maas-rate-limit-demo -n maas-load-test -c premium-tier"
+echo "Configured CronJob maas-rate-limit-demo in namespace maas-load-test (every 5 minutes)."
+echo "Each run sends up to ${DURATION_SECONDS}s of load to both subscriptions."
+echo "Watch free-tier logs with: oc logs -f -n maas-load-test -l app.kubernetes.io/name=maas-rate-limit-demo -c free-tier"
+echo "Watch premium logs with:   oc logs -f -n maas-load-test -l app.kubernetes.io/name=maas-rate-limit-demo -c premium-tier"
 echo "Remove it with:  scripts/cleanup-maas-loadtest.sh"

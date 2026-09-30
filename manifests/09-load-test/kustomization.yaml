@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: maas-load-test
 resources:
   - namespace.yaml
-  - job.yaml
+  - cronjob.yaml
 configMapGenerator:
   - name: maas-rate-limit-client
     files:

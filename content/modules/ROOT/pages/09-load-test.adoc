@@ -1,6 +1,6 @@
 = End-to-End Deployment and Rate-Limit Demo
 
-This runbook deploys the MaaS platform, serves a model, enables the observability components, and runs a bounded Kubernetes Job that sends inference requests under both free and premium subscriptions. The clients run at the same time and print separate request summaries. When token limiting is working, free-tier requests should reach `429 Too Many Requests` while premium requests continue to succeed.
+This runbook deploys the MaaS platform, serves a model, enables the observability components, and installs a Kubernetes CronJob that sends inference requests every five minutes under both free and premium subscriptions. Each run lasts three minutes by default; the clients run at the same time and print separate request summaries. When token limiting is working, free-tier requests should reach `429 Too Many Requests` while premium requests continue to succeed.
 
 TIP: Commands below assume the repository root and an `oc` session with cluster-admin access. For phase details, see xref:quick-start.adoc[Automated Setup] and the linked phase pages.
 
@@ -40,16 +40,16 @@ oc get maassubscription -n models-as-a-service
 
 The example `gpt-oss-20b` subscriptions allow 100 tokens/minute for free and 100,000 tokens/minute for premium. The simulator uses its own subscription names and configured limits.
 
-== 2. Start the rate-limit Job
+== 2. Install the recurring rate-limit CronJob
 
-The deploy script discovers the ingress domain, creates one-hour ephemeral API keys for the model's `-free` and `-premium` subscriptions, stores them in a Secret in `maas-load-test`, and applies the Job. The API keys are never written to the repository or printed in the terminal.
+The deploy script discovers the ingress domain, creates regular API keys for the model's `-free` and `-premium` subscriptions, stores them in a Secret in `maas-load-test`, and applies the CronJob. The keys expire after 90 days by default so the recurring workload continues beyond the one-hour lifetime of ephemeral keys. The API keys are never written to the repository or printed in the terminal.
 
 [source,bash]
 ----
 ./scripts/run-maas-loadtest.sh
 ----
 
-By default each client runs for three minutes, starts up to two requests per second with at most eight requests in flight, requests up to 20 completion tokens, and times out an incomplete request after two seconds. Repeated short requests are intended to cross the free tier's 100 tokens/minute budget while premium remains below its 100,000 tokens/minute limit. Incomplete `200` responses are recorded separately from completed successes and `429`s. This is a bounded demonstration workload. Override settings when needed:
+The CronJob starts on each five-minute boundary. It uses `concurrencyPolicy: Forbid`, so a delayed run cannot overlap the next run. By default each client runs for three minutes, starts up to two requests per second with at most eight requests in flight, requests up to 20 completion tokens, and times out an incomplete request after two seconds. Repeated short requests are intended to cross the free tier's 100 tokens/minute budget while premium remains below its 100,000 tokens/minute limit. Incomplete `200` responses are recorded separately from completed successes and `429`s. This is a bounded demonstration workload. Override settings when needed; duration must be no longer than four minutes for the five-minute schedule:
 
 [source,bash]
 ----
@@ -63,17 +63,17 @@ MAAS_CONCURRENCY=8 \
 ./scripts/run-maas-loadtest.sh
 ----
 
-The clients discover the model ID and inference URL from the MaaS `/v1/models` response. `MAAS_MODEL_REF` identifies the OpenShift MaaSModelRef; set `MAAS_MODEL` only to force a specific public MaaS model ID. Set `MAAS_FREE_SUBSCRIPTION` and `MAAS_PREMIUM_SUBSCRIPTION` if the deployed subscription names do not follow `<model-ref>-free` and `<model-ref>-premium`. The default client verifies TLS certificates. If the cluster's sandbox ingress certificate is not trusted by the container image, set `MAAS_VERIFY_TLS=false` for this demo only.
+The clients discover the model ID and inference URL from the MaaS `/v1/models` response. `MAAS_MODEL_REF` identifies the OpenShift MaaSModelRef; set `MAAS_MODEL` only to force a specific public MaaS model ID. Set `MAAS_FREE_SUBSCRIPTION` and `MAAS_PREMIUM_SUBSCRIPTION` if the deployed subscription names do not follow `<model-ref>-free` and `<model-ref>-premium`. `MAAS_API_KEY_TTL` controls key lifetime and defaults to `2160h` (90 days); keep it within the cluster's configured maximum. Re-run the setup after cleanup to rotate the keys before they expire. The default client verifies TLS certificates. If the cluster's sandbox ingress certificate is not trusted by the container image, set `MAAS_VERIFY_TLS=false` for this demo only.
 
 == 3. Watch the result
 
-The Job has two containers, one for each tier. Each request log includes its HTTP status, elapsed time, token usage when available, and whether the response body completed. The summary reports completed successes, `429`s, incomplete `200` responses, and other responses.
+Each scheduled Job has two containers, one for each tier. Each request log includes its HTTP status, elapsed time, token usage when available, and whether the response body completed. The summary reports completed successes, `429`s, incomplete `200` responses, and other responses.
 
 [source,bash]
 ----
-oc get job,pod -n maas-load-test -w
-oc logs -f job/maas-rate-limit-demo -n maas-load-test -c free-tier
-oc logs -f job/maas-rate-limit-demo -n maas-load-test -c premium-tier
+oc get cronjob,job,pod -n maas-load-test -w
+oc logs -f -n maas-load-test -l app.kubernetes.io/name=maas-rate-limit-demo -c free-tier
+oc logs -f -n maas-load-test -l app.kubernetes.io/name=maas-rate-limit-demo -c premium-tier
 ----
 
 Compare the `rate_limited_429` count in both summary records. A `429` on the free key demonstrates its lower token budget. Premium should normally continue returning completed `200` responses; if it also gets `429`, check its subscription limit and recent usage. `401`/`403` indicate key or subscription configuration trouble. A `200` with `response_complete: false` means the gateway returned a status but did not finish the response body; it is neither a completed success nor a `429`. Check model readiness, the MaaS route, and `TokenRateLimitPolicy` conditions with `oc get tokenratelimitpolicy -n llm -o yaml`.
@@ -82,14 +82,14 @@ When Phase 7 observability is enabled, inspect the RHOAI dashboards created by t
 
 == 4. Stop and clean up
 
-The Job stops after its configured duration and is retained for an hour so its logs can be reviewed. Revoke both API keys and remove the Job, Secret, ConfigMaps, and namespace after the demo:
+The CronJob continues every five minutes until it is removed. Completed Jobs are retained for up to an hour for log review. Revoke both API keys and remove the CronJob, Secret, ConfigMaps, and namespace when the demo is over:
 
 [source,bash]
 ----
 ./scripts/cleanup-maas-loadtest.sh
 ----
 
-The API keys also expire after one hour. If cleanup cannot reach the MaaS API, the script still starts namespace deletion and reports the key-revocation status; any unrevoked demo key then expires automatically.
+The API keys also expire after 90 days by default. If cleanup cannot reach the MaaS API, the script still starts namespace deletion and reports the key-revocation status; any unrevoked demo key then expires automatically.
 
 == Deployment inventory
 
@@ -107,11 +107,15 @@ The API keys also expire after one hour. If cleanup cannot reach the MaaS API, t
 | Optional Cluster Observability Operator, telemetry collectors, Tempo, and dashboards
 
 | `manifests/09-load-test/`
-| Namespace, client ConfigMap, and the two-container rate-limit demo Job
+| Namespace, client ConfigMap, and the five-minute two-container rate-limit CronJob
 
 | `scripts/run-maas-loadtest.sh`
-| Creates short-lived MaaS API keys and applies runtime settings and Job
+| Creates regular MaaS API keys and applies runtime settings and CronJob
 
 | `scripts/cleanup-maas-loadtest.sh`
 | Revokes the keys and removes the demo namespace and its resources
 |===
+
+== References
+
+* link:https://github.com/opendatahub-io/models-as-a-service/blob/main/maas-api/README.md[Upstream MaaS API key lifetime and ephemeral-key documentation]

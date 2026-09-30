@@ -42,7 +42,7 @@ for tier in FREE PREMIUM; do
             -H "Authorization: Bearer ${ADMIN_TOKEN}" || echo 000)"
         case "$status" in
             2??|404) echo "${tier_label} API key revoked or already expired." ;;
-            *) echo "Could not revoke ${tier_label} API key (HTTP ${status}); it will expire within one hour." >&2 ;;
+            *) echo "Could not revoke ${tier_label} API key (HTTP ${status}); it will expire within the configured lifetime (90 days by default)." >&2 ;;
         esac
     fi
 done

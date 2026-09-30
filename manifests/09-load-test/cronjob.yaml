@@ -1,0 +1,99 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: maas-rate-limit-demo
+  namespace: maas-load-test
+  labels:
+    app.kubernetes.io/name: maas-rate-limit-demo
+    app.kubernetes.io/part-of: maas-load-test
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: maas-rate-limit-demo
+        app.kubernetes.io/part-of: maas-load-test
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 270
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: maas-rate-limit-demo
+            app.kubernetes.io/part-of: maas-load-test
+        spec:
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 10
+          containers:
+            - name: free-tier
+              image: registry.access.redhat.com/ubi9/python-312:latest
+              imagePullPolicy: IfNotPresent
+              command: ["python3", "/opt/maas/runner.py", "free"]
+              envFrom:
+                - configMapRef:
+                    name: maas-loadtest-settings
+              env:
+                - name: MAAS_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: maas-loadtest-keys
+                      key: FREE_API_KEY
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 96Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - name: client
+                  mountPath: /opt/maas
+                  readOnly: true
+            - name: premium-tier
+              image: registry.access.redhat.com/ubi9/python-312:latest
+              imagePullPolicy: IfNotPresent
+              command: ["python3", "/opt/maas/runner.py", "premium"]
+              envFrom:
+                - configMapRef:
+                    name: maas-loadtest-settings
+              env:
+                - name: MAAS_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: maas-loadtest-keys
+                      key: PREMIUM_API_KEY
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 96Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - name: client
+                  mountPath: /opt/maas
+                  readOnly: true
+          volumes:
+            - name: client
+              configMap:
+                name: maas-rate-limit-client
+                defaultMode: 0444
