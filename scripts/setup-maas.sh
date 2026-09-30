@@ -613,20 +613,30 @@ if should_run 4; then
             fi
         fi
 
-        log_step "Applying OdhDashboardConfig..."
-        run_cmd oc apply -f "$MANIFESTS_DIR/04-rhoai-config/odh-dashboard-config.yaml"
-        if [ "$DRY_RUN" = false ]; then
-            for _attempt in 1 2 3; do
-                sleep 10
-                MAAS_FLAG=$(oc get odhdashboardconfig odh-dashboard-config -n "$NAMESPACE" \
-                    -o jsonpath='{.spec.dashboardConfig.modelAsService}' 2>/dev/null || echo "")
-                if [ "$MAAS_FLAG" = "true" ]; then break; fi
-                log_warn "Dashboard config flags overridden by operator — re-applying (attempt $_attempt)..."
-                oc apply -f "$MANIFESTS_DIR/04-rhoai-config/odh-dashboard-config.yaml" 2>/dev/null || true
-            done
-        fi
-        log_info "Dashboard config applied"
     fi
+
+    # Apply OdhDashboardConfig even for an already-managed DSC: otherwise a
+    # phase resume can skip the console feature flags and hide the dashboard.
+    log_step "Applying OdhDashboardConfig..."
+    run_cmd oc apply -f "$MANIFESTS_DIR/04-rhoai-config/odh-dashboard-config.yaml"
+    if [ "$DRY_RUN" = false ]; then
+        for _attempt in 1 2 3; do
+            MAAS_FLAG=$(oc get odhdashboardconfig odh-dashboard-config -n "$NAMESPACE" \
+                -o jsonpath='{.spec.dashboardConfig.modelAsService}' 2>/dev/null || echo "")
+            OBSERVABILITY_FLAG=$(oc get odhdashboardconfig odh-dashboard-config -n "$NAMESPACE" \
+                -o jsonpath='{.spec.dashboardConfig.observabilityDashboard}' 2>/dev/null || echo "")
+            if [ "$MAAS_FLAG" = "true" ] && [ "$OBSERVABILITY_FLAG" = "true" ]; then break; fi
+            log_warn "Dashboard config flags overridden by operator — re-applying (attempt $_attempt)..."
+            oc apply -f "$MANIFESTS_DIR/04-rhoai-config/odh-dashboard-config.yaml" 2>/dev/null || true
+            if [ "$_attempt" -lt 3 ]; then sleep 10; fi
+        done
+        if [ "${OBSERVABILITY_FLAG:-}" = "true" ]; then
+            log_info "Observability dashboard enabled in OdhDashboardConfig"
+        else
+            log_warn "OdhDashboardConfig observabilityDashboard flag is not true"
+        fi
+    fi
+    log_info "Dashboard config applied"
 
     # Wait for maas-api (should start healthy since PostgreSQL was deployed in Phase 3)
     log_step "Waiting for maas-api deployment"
@@ -655,12 +665,19 @@ if should_run 4; then
 
     # Verify Tenant CR
     if [ "$DRY_RUN" = false ]; then
-        TENANT_READY=$(oc get tenant default-tenant -n models-as-a-service \
-            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
-        if [ "$TENANT_READY" = "True" ]; then
-            log_info "Tenant CR: Ready"
+        TENANT_RESOURCE="Tenant"
+        if oc get maastenantconfig default-tenant -n models-as-a-service >/dev/null 2>&1; then
+            TENANT_RESOURCE="MaasTenantConfig"
+            TENANT_READY=$(oc get maastenantconfig default-tenant -n models-as-a-service \
+                -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
         else
-            log_warn "Tenant CR not Ready yet (status: ${TENANT_READY:-not found})"
+            TENANT_READY=$(oc get tenant default-tenant -n models-as-a-service \
+                -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+        fi
+        if [ "$TENANT_READY" = "True" ]; then
+            log_info "${TENANT_RESOURCE}: Ready"
+        else
+            log_warn "${TENANT_RESOURCE} not Ready yet (status: ${TENANT_READY:-not found})"
         fi
     fi
 
@@ -916,10 +933,51 @@ if should_run 7 && [ "$WITH_OBSERVABILITY" = true ]; then
     fi
     log_info "DSCI monitoring configured"
 
-    # Telemetry
-    log_step "Applying Gateway telemetry..."
-    run_cmd oc apply -k "$MANIFESTS_DIR/07-observability/telemetry/"
-    log_info "Gateway telemetry applied"
+    # The RHOAI console hides Observe & Monitor dashboards unless this
+    # dashboard feature flag is enabled. Reapply here so --from-phase 7 repairs
+    # existing installations whose Phase 4 was skipped.
+    log_step "Enabling the RHOAI observability dashboard..."
+    run_cmd oc patch odhdashboardconfig odh-dashboard-config -n "$NAMESPACE" \
+        --type=merge -p '{"spec":{"dashboardConfig":{"observabilityDashboard":true}}}'
+
+    # MaaS 3.5 uses MaasTenantConfig; MaaS 3.4 uses Tenant. Enabling tenant
+    # telemetry asks the RHOAI operator to reconcile its gateway telemetry.
+    log_step "Enabling MaaS tenant telemetry..."
+    TENANT_TELEMETRY_PATCH='{"spec":{"telemetry":{"enabled":true,"metrics":{"captureOrganization":true,"captureUser":true,"captureGroup":false,"captureModelUsage":true}}}}'
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY RUN] Would patch the default MaaS tenant telemetry settings"
+    elif oc get maastenantconfig default-tenant -n models-as-a-service >/dev/null 2>&1; then
+        run_cmd oc patch maastenantconfig default-tenant -n models-as-a-service \
+            --type=merge -p "$TENANT_TELEMETRY_PATCH"
+    elif oc get tenant default-tenant -n models-as-a-service >/dev/null 2>&1; then
+        run_cmd oc patch tenant default-tenant -n models-as-a-service \
+            --type=merge -p "$TENANT_TELEMETRY_PATCH"
+    else
+        log_warn "No default-tenant MaasTenantConfig or Tenant found; skipped MaaS telemetry settings"
+    fi
+
+    # The RHOAI MaaS operator normally owns these gateway telemetry resources.
+    # Apply the repo manifests only as a fallback if reconciliation does not
+    # create the TelemetryPolicy.
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY RUN] Would use operator-created Gateway telemetry; reference fallback: $MANIFESTS_DIR/07-observability/telemetry/"
+    else
+        TELEMETRY_POLICY_READY=false
+        for _attempt in $(seq 1 12); do
+            if oc get telemetrypolicy.extensions.kuadrant.io maas-telemetry \
+                -n openshift-ingress >/dev/null 2>&1; then
+                TELEMETRY_POLICY_READY=true
+                break
+            fi
+            sleep 5
+        done
+        if [ "$TELEMETRY_POLICY_READY" = true ]; then
+            log_info "Gateway TelemetryPolicy is managed by the MaaS operator"
+        else
+            log_warn "MaaS operator did not create maas-telemetry; applying the reference manifests"
+            run_cmd oc apply -k "$MANIFESTS_DIR/07-observability/telemetry/"
+        fi
+    fi
 fi
 
 # =============================================================================

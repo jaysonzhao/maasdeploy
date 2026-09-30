@@ -37,7 +37,7 @@ Each phase has step-by-step instructions, status gates, and troubleshooting.
 
 | Phase | Description | Time |
 |-------|-------------|------|
-| [7. Observability](https://rh-aiservices-bu.github.io/rhoai-maas-guide/modules/main/07-observability.html) *(optional)* | COO subscription + Gateway telemetry dashboards | 5 min |
+| [7. Observability](https://rh-aiservices-bu.github.io/rhoai-maas-guide/modules/main/07-observability.html) *(optional)* | COO, MaaS tenant telemetry, and OpenShift AI usage dashboard | 5 min |
 
 ### Rate-Limit Load Demo
 
@@ -57,7 +57,7 @@ Resume from a specific phase after a failure:
 ./scripts/setup-maas.sh --from-phase 4
 ```
 
-With observability (Cluster Observability Operator + Gateway telemetry):
+With observability (Cluster Observability Operator + MaaS tenant telemetry + usage dashboard):
 
 ```bash
 ./scripts/setup-maas.sh --with-observability

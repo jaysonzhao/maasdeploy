@@ -12,6 +12,8 @@ This phase adds *optional* observability enhancements on top of UWM:
 
 . *Gateway Telemetry* - per-model, per-user, per-subscription usage metrics on the MaaS gateway. Adds fine-grained labels (`model`, `user`, `subscription`, `organization_id`, `cost_center`) to gateway metrics for usage attribution and billing.
 
+. *MaaS tenant telemetry* - turns on those metrics at the MaaS tenant. Use `MaasTenantConfig` on RHOAI 3.5+ and `Tenant` on RHOAI 3.4. The tenant configuration is required even when the Prometheus and Perses stack is healthy.
+
 TIP: All file paths and `oc apply` commands in this guide are relative to the link:{repo-url}[rhoai-maas-guide] repository root. Make sure you have cloned it and are working from its root directory (see xref:index.adoc#_getting_started[Getting Started]).
 
 IMPORTANT: This guide is not a replacement for the link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/html-single/govern_llm_access_with_models-as-a-service/index[official {rhoai} {maas} documentation]. It is a companion resource with opinionated Kustomize manifests and automation scripts to accelerate deployment.
@@ -116,14 +118,67 @@ Wait for the DSCI to reconcile:
 oc wait --for=jsonpath='{.status.phase}'=Ready dsci/default-dsci --timeout=300s
 ----
 
-== Step 5: Apply Gateway Telemetry
+== Step 5: Enable the dashboard in the RHOAI UI
 
-Once COO is installed and the MaaS gateway is running:
+The OdhDashboardConfig feature flag controls whether the dashboard entry is shown in the OpenShift AI console. Set it even if the Perses dashboard resources already exist:
 
 [source,bash]
 ----
-oc apply -k manifests/07-observability/telemetry/
+oc patch odhdashboardconfig odh-dashboard-config -n redhat-ods-applications \
+  --type=merge -p '{"spec":{"dashboardConfig":{"observabilityDashboard":true}}}'
 ----
+
+The automated setup script ensures this setting in both Phase 4 and Phase 7, so resuming with `--from-phase 7` also repairs a missing console entry.
+
+== Step 6: Enable MaaS tenant telemetry
+
+Use the resource matching your RHOAI version. RHOAI 3.5+ uses `MaasTenantConfig`; RHOAI 3.4 uses `Tenant`. The metric settings below enable organization, user, and model attribution while leaving group capture off.
+
+RHOAI 3.5+:
+
+[source,bash]
+----
+oc patch maastenantconfig default-tenant -n models-as-a-service --type=merge -p '{
+  "spec":{"telemetry":{"enabled":true,"metrics":{
+    "captureOrganization":true,"captureUser":true,
+    "captureGroup":false,"captureModelUsage":true
+  }}}
+}'
+----
+
+RHOAI 3.4:
+
+[source,bash]
+----
+oc patch tenants.maas.opendatahub.io default-tenant -n models-as-a-service --type=merge -p '{
+  "spec":{"telemetry":{"enabled":true,"metrics":{
+    "captureOrganization":true,"captureUser":true,
+    "captureGroup":false,"captureModelUsage":true
+  }}}
+}'
+----
+
+Enabling tenant telemetry causes the RHOAI operator to reconcile the gateway telemetry resources. The manifests in `manifests/07-observability/telemetry/` remain available as a reference or fallback for environments where the operator does not create them.
+
+== Step 7: Verify the dashboard and telemetry
+
+Check the relevant tenant has the settings enabled:
+
+[source,bash]
+----
+oc get maastenantconfig default-tenant -n models-as-a-service \
+  -o jsonpath='{.spec.telemetry}{"\n"}'
+# On RHOAI 3.4, use: oc get tenant default-tenant -n models-as-a-service -o yaml
+
+oc get odhdashboardconfig odh-dashboard-config -n redhat-ods-applications \
+  -o jsonpath='{.spec.dashboardConfig.observabilityDashboard}{"\n"}'
+
+oc get persesdashboard -n redhat-ods-monitoring | grep maas-usage
+oc get telemetrypolicies.extensions.kuadrant.io -n openshift-ingress
+oc get telemetry.telemetry.istio.io -n openshift-ingress
+----
+
+The MaaS Usage dashboard should be visible in the OpenShift AI console under *Observe and monitor > Dashboard* and in the OpenShift console under *Observe > Dashboards > Usage*. Dashboard resources can be available before they contain data; send MaaS inference traffic and allow Prometheus to scrape the counters before expecting nonzero values.
 
 == Verification
 
@@ -194,7 +249,7 @@ manifests/07-observability/
   telemetry/
     gateway-telemetry-policy.yaml    # Kuadrant TelemetryPolicy
     istio-gateway-telemetry.yaml     # Istio Telemetry CR
-    kustomization.yaml
+    kustomization.yaml               # Reference/fallback; tenant config normally reconciles these
 ----
 
 == References
@@ -203,6 +258,8 @@ manifests/07-observability/
 * link:https://docs.redhat.com/en/documentation/red_hat_openshift_cluster_observability_operator/1-latest[Cluster Observability Operator documentation]
 * link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html-single/govern_llm_access_with_models-as-a-service/index#maas-observability_maas-deploy[RHOAI Observability dashboard]
 * link:https://docs.kuadrant.io/dev/kuadrant-operator/doc/reference/telemetrypolicy/[Kuadrant TelemetryPolicy]
+* link:https://developers.redhat.com/articles/2026/07/06/track-model-usage-openshift-ai-usage-dashboard[Track model usage with the OpenShift AI 3.4 usage dashboard]
+* link:https://github.com/erkerc/rhoai-maas-tutorial[rhoai-maas-tutorial]
 
 == Next step
 
