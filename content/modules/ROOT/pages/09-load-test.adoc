@@ -1,6 +1,6 @@
 = End-to-End Deployment and Rate-Limit Demo
 
-This runbook deploys the MaaS platform, serves a model, enables the observability components, and installs a Kubernetes CronJob that sends inference requests every five minutes under both free and premium subscriptions. Each run lasts three minutes by default; the clients run at the same time and print separate request summaries. When token limiting is working, free-tier requests should reach `429 Too Many Requests` while premium requests continue to succeed.
+This runbook deploys the MaaS platform, serves a model, enables the observability components, and installs a Kubernetes CronJob that sends inference requests every 20 minutes under both free and premium subscriptions. Each run lasts three minutes by default; the clients run at the same time and print separate request summaries. When token limiting is working, free-tier requests should reach `429 Too Many Requests` while premium requests continue to succeed.
 
 TIP: Commands below assume the repository root and an `oc` session with cluster-admin access. For phase details, see xref:quick-start.adoc[Automated Setup] and the linked phase pages.
 
@@ -49,7 +49,7 @@ The deploy script discovers the ingress domain, creates regular API keys for the
 ./scripts/run-maas-loadtest.sh
 ----
 
-The CronJob starts on each five-minute boundary. It uses `concurrencyPolicy: Forbid`, so a delayed run cannot overlap the next run. By default each client runs for three minutes, starts up to two requests per second with at most eight requests in flight, requests up to 20 completion tokens, and times out an incomplete request after two seconds. Repeated short requests are intended to cross the free tier's 100 tokens/minute budget while premium remains below its 100,000 tokens/minute limit. Incomplete `200` responses are recorded separately from completed successes and `429`s. This is a bounded demonstration workload. Override settings when needed; duration must be no longer than four minutes for the five-minute schedule:
+The CronJob starts every 20 minutes. It uses `concurrencyPolicy: Forbid`, so a delayed run cannot overlap the next run. By default each client runs for three minutes, starts up to two requests per second with at most eight requests in flight, requests up to 20 completion tokens, and times out an incomplete request after two seconds. Repeated short requests are intended to cross the free tier's 100 tokens/minute budget while premium remains below its 100,000 tokens/minute limit. Incomplete `200` responses are recorded separately from completed successes and `429`s. This is a bounded demonstration workload. Override settings when needed; duration remains capped at four minutes by the runner:
 
 [source,bash]
 ----
@@ -82,7 +82,7 @@ When Phase 7 observability is enabled, inspect the RHOAI dashboards created by t
 
 == 4. Stop and clean up
 
-The CronJob continues every five minutes until it is removed. Completed Jobs are retained for up to an hour for log review. Revoke both API keys and remove the CronJob, Secret, ConfigMaps, and namespace when the demo is over:
+The CronJob continues every 20 minutes until it is removed. Completed Jobs are retained for up to an hour for log review. Revoke both API keys and remove the CronJob, Secret, ConfigMaps, and namespace when the demo is over:
 
 [source,bash]
 ----
@@ -107,7 +107,7 @@ The API keys also expire after 90 days by default. If cleanup cannot reach the M
 | Optional Cluster Observability Operator, telemetry collectors, Tempo, and dashboards
 
 | `manifests/09-load-test/`
-| Namespace, client ConfigMap, and the five-minute two-container rate-limit CronJob
+| Namespace, client ConfigMap, and the 20-minute two-container rate-limit CronJob
 
 | `scripts/run-maas-loadtest.sh`
 | Creates regular MaaS API keys and applies runtime settings and CronJob

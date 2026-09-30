@@ -32,7 +32,7 @@ case "$VERIFY_TLS" in
     false|False|FALSE|0|no|No|NO) CURL_OPTIONS+=(-k) ;;
 esac
 if [[ ! "$DURATION_SECONDS" =~ ^[1-9][0-9]*$ || "$DURATION_SECONDS" -gt 240 ]]; then
-    echo "MAAS_DURATION_SECONDS must be an integer from 1 to 240 for the five-minute schedule." >&2
+    echo "MAAS_DURATION_SECONDS must be an integer from 1 to 240 seconds." >&2
     exit 2
 fi
 if [[ ! "$MAX_TOKENS" =~ ^[1-9][0-9]*$ || "$MAX_TOKENS" -gt 4096 ]]; then
@@ -176,7 +176,7 @@ if ! oc apply -k "${REPO_ROOT}/manifests/09-load-test" >/dev/null; then
 fi
 FREE_KEY_CREATED=""
 PREMIUM_KEY_CREATED=""
-echo "Configured CronJob maas-rate-limit-demo in namespace maas-load-test (every 5 minutes)."
+echo "Configured CronJob maas-rate-limit-demo in namespace maas-load-test (every 20 minutes)."
 echo "Each run sends up to ${DURATION_SECONDS}s of load to both subscriptions."
 echo "Watch free-tier logs with: oc logs -f -n maas-load-test -l app.kubernetes.io/name=maas-rate-limit-demo -c free-tier"
 echo "Watch premium logs with:   oc logs -f -n maas-load-test -l app.kubernetes.io/name=maas-rate-limit-demo -c premium-tier"
