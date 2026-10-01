@@ -121,7 +121,7 @@ spec:
             - --pass-access-token=false
             - --pass-user-headers=true
             - --skip-auth-regex=^/healthz$
-            - --openshift-sar={"namespace":"maas-portal","resource":"services","verb":"get","name":"maas-guided-journey"}
+            - --openshift-sar={"namespace":"maas-portal","resource":"services","verb":"get","resourceName":"maas-guided-journey"}
           ports:
             - name: oauth
               containerPort: 8443
