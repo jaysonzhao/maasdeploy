@@ -41,19 +41,55 @@ def main():
         f"{base_url}/v1/models",
         headers={"Authorization": f"Bearer {api_key}"},
     )
-    try:
-        with urllib.request.urlopen(
-            models_request, timeout=timeout, context=request_context
-        ) as response:
-            available_models = json.loads(response.read().decode("utf-8")).get("data") or []
-    except (
-        urllib.error.HTTPError,
-        urllib.error.URLError,
-        http.client.HTTPException,
-        TimeoutError,
-        OSError,
-        ValueError,
-    ) as error:
+    discovery_attempts = 0
+    discovery_error = None
+    while discovery_attempts < 3:
+        discovery_attempts += 1
+        try:
+            with urllib.request.urlopen(
+                models_request, timeout=timeout, context=request_context
+            ) as response:
+                available_models = (
+                    json.loads(response.read().decode("utf-8")).get("data") or []
+                )
+            discovery_error = None
+            break
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            http.client.HTTPException,
+            TimeoutError,
+            OSError,
+            ValueError,
+        ) as error:
+            discovery_error = error
+            retryable = not isinstance(error, urllib.error.HTTPError) or (
+                500 <= error.code < 600
+            )
+            if isinstance(error, urllib.error.HTTPError):
+                error.close()
+            if not retryable or discovery_attempts == 3:
+                break
+            print(
+                json.dumps(
+                    {
+                        "event": "model_discovery_retry",
+                        "tier": tier,
+                        "http_status": (
+                            error.code
+                            if isinstance(error, urllib.error.HTTPError)
+                            else 0
+                        ),
+                        "attempt": discovery_attempts,
+                        "max_attempts": 3,
+                    }
+                ),
+                flush=True,
+            )
+            time.sleep(0.5 * discovery_attempts)
+
+    if discovery_error is not None:
+        error = discovery_error
         status = error.code if isinstance(error, urllib.error.HTTPError) else 0
         print(
             json.dumps(
@@ -62,6 +98,7 @@ def main():
                     "tier": tier,
                     "http_status": status,
                     "error_type": type(error).__name__,
+                    "attempts": discovery_attempts,
                 }
             ),
             flush=True,

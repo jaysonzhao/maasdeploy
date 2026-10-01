@@ -151,7 +151,7 @@ MAAS_PREMIUM_SUBSCRIPTION=simulator-premium \
 ./scripts/run-maas-loadtest.sh
 ```
 
-The script creates regular API keys for the free and premium subscriptions, stores them in the `maas-load-test` namespace Secret, and installs `maas-rate-limit-demo`, scheduled every 20 minutes. The default key lifetime is 2160 hours (90 days). Each job runs both tiers concurrently for 180 seconds by default, uses up to eight in-flight requests per client, and keeps jobs from overlapping (`concurrencyPolicy: Forbid`). The bounded requests are intended to show free-tier `429` responses while premium requests continue succeeding.
+The script creates regular API keys for the free and premium subscriptions, stores them in the `maas-load-test` namespace Secret, and installs `maas-rate-limit-demo`, scheduled every 20 minutes. The default key lifetime is 2160 hours (90 days). Each job runs both tiers concurrently for 180 seconds by default, uses up to eight in-flight requests per client, and keeps jobs from overlapping (`concurrencyPolicy: Forbid`). Model discovery retries transient network errors and HTTP 5xx responses up to three times before failing. The bounded requests are intended to show free-tier `429` responses while premium requests continue succeeding.
 
 Supported overrides are read from `scripts/run-maas-loadtest.sh`: `MAAS_MODEL_REF`, `MAAS_MODEL`, `MAAS_FREE_SUBSCRIPTION`, `MAAS_PREMIUM_SUBSCRIPTION`, `MAAS_DURATION_SECONDS` (1–240 seconds), `MAAS_API_KEY_TTL`, `MAAS_INTERVAL_SECONDS`, `MAAS_MAX_TOKENS` (1–4096), `MAAS_REQUEST_TIMEOUT_SECONDS` (1–300), `MAAS_CONCURRENCY` (1–8), `MAAS_BASE_URL`, and `MAAS_VERIFY_TLS`. TLS verification is on by default; disable it only for an untrusted sandbox certificate when needed.
 
