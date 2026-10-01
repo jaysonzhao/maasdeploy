@@ -125,7 +125,7 @@ oc whoami --show-server
 ./scripts/deploy-maas-portal.sh
 ```
 
-The portal serves static feature descriptions and links only. It does not read cluster objects or accept API keys. Read `content/modules/ROOT/pages/11-maas-portal.adoc` for its deployment and cleanup steps.
+The portal serves static feature descriptions and links only. It does not read cluster objects or accept API keys. Use `.claude/skills/build-maas-portal/SKILL.md` for portal-specific build, contextual link, and verification instructions; read `content/modules/ROOT/pages/11-maas-portal.adoc` for the deployment and cleanup runbook.
 
 Check model readiness and the MaaS catalog:
 

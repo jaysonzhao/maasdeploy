@@ -15,6 +15,8 @@ Requires OpenShift 4.19+ with cluster-admin access.
 
 **Agent deployment skill:** [`.claude/skills/install-maas/SKILL.md`](.claude/skills/install-maas/SKILL.md) consolidates installation, observability, external models, verification, and the recurring rate-limit demo.
 
+**Portal builder skill:** [`.claude/skills/build-maas-portal/SKILL.md`](.claude/skills/build-maas-portal/SKILL.md) covers generic portal changes, contextual dashboard/CRD links, OAuth protection, deployment, and verification.
+
 **Guided MaaS portal:** [`portal/`](portal/) walks through model discovery, deployment, governance, keys, load generation, and monitoring. Deploy it behind OpenShift OAuth with `./scripts/deploy-maas-portal.sh`; see [the portal runbook](content/modules/ROOT/pages/11-maas-portal.adoc).
 
 ## Phases
