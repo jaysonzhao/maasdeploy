@@ -35,7 +35,12 @@ if [[ -z "${DASHBOARD_HOST}" ]]; then
     exit 1
 fi
 
-CONSOLE_URL="https://console-openshift-console.apps.${CLUSTER_DOMAIN}"
+if [[ "${CLUSTER_DOMAIN}" == apps.* ]]; then
+    CONSOLE_HOST="console-openshift-console.${CLUSTER_DOMAIN}"
+else
+    CONSOLE_HOST="console-openshift-console.apps.${CLUSTER_DOMAIN}"
+fi
+CONSOLE_URL="https://${CONSOLE_HOST}"
 DASHBOARD_URL="https://${DASHBOARD_HOST}"
 CLUSTER_NAME="${CLUSTER_DOMAIN}"
 

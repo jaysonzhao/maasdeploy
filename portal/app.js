@@ -9,18 +9,18 @@ const steps = [
     id: 'catalog', title: 'Model catalog', short: 'Model catalog', number: '01', icon: '◈', label: 'DISCOVER', badge: 'START HERE',
     lead: 'Choose which model sources users can discover, then find a model that fits the intended serving hardware and use case.',
     summaryTitle: 'A curated entry point for models',
-    summary: 'OpenShift AI administrators manage catalog sources to control which models appear in the dashboard. A source can expose models from Hugging Face or a YAML catalog, with include and exclude patterns to shape what users see. Enabling a source validates its connection.',
+    summary: 'OpenShift AI administrators manage catalog sources to control which models appear in the dashboard. A source can expose models from Hugging Face or a YAML catalog, with include and exclude patterns to shape what users see. Enabling a source validates its connection. The corresponding OpenShift resource is a ConfigMap, rather than a feature-specific CRD.',
     checklist: [
       'Open the OpenShift AI dashboard and go to Settings → Model resources and operations → Model catalog settings (catalog source management requires administrator access).',
       'Add or preview a source, set include/exclude patterns, and enable it after checking connectivity.',
       'Hugging Face sources expose public, non-gated models. The cluster needs network access to Hugging Face; upstream model quality and deployment compatibility are not validated by Red Hat.',
     ],
     links: [
-      ['Open the OpenShift AI dashboard', 'dashboard'],
-      ['Browse the repository model manifests', 'https://github.com/jaysonzhao/maasdeploy/tree/main/manifests/05-maas-models'],
+      ['OpenShift AI: Model catalog settings', 'dashboard:/settings/model-resources-operations/model-catalog'],
+      ['OpenShift: model-catalog-sources ConfigMap', 'console:/k8s/ns/rhoai-model-registries/configmaps/model-catalog-sources'],
       ['Read: manage model catalog sources', docs.catalog],
     ],
-    commandTitle: 'Repository starting point', command: 'ls manifests/05-maas-models', commandNote: 'Use catalog browsing for discovery; these repo examples are ready-made deployment configurations.',
+    commandTitle: 'Local model configuration examples', command: 'ls manifests/05-maas-models', commandNote: 'Use the dashboard catalog for discovery; these local examples are deployment configurations.',
     source: ['Model catalog sources', docs.catalog], next: 'deployment',
   },
   {
@@ -35,9 +35,9 @@ const steps = [
       'Register or verify the MaaSModelRef and its authorization policy/subscription resources for the endpoint.',
     ],
     links: [
-      ['Open the OpenShift AI dashboard', 'dashboard'],
-      ['Open repository deployment script', 'https://github.com/jaysonzhao/maasdeploy/blob/main/scripts/deploy-model.sh'],
-      ['Browse deployment manifests', 'https://github.com/jaysonzhao/maasdeploy/tree/main/manifests/05-maas-models'],
+      ['OpenShift AI: Find and deploy models', 'dashboard:/ai-hub/models'],
+      ['OpenShift CRD: LLMInferenceService', 'crd:llminferenceservices.serving.kserve.io'],
+      ['OpenShift CRD: MaaSModelRef', 'crd:maasmodelrefs.maas.opendatahub.io'],
       ['Read: distributed inference with llm-d', docs.llmd],
     ],
     commandTitle: 'Deploy this repository’s model configuration', command: './scripts/deploy-model.sh --help\n./scripts/deploy-model.sh --model simulator', commandNote: 'Replace simulator with a GPU model when the target cluster has supported accelerators.',
@@ -55,8 +55,8 @@ const steps = [
       'Check that the same group and model are covered by a subscription; authorization without subscription/quota can be rate-limited.',
     ],
     links: [
-      ['Open the OpenShift AI dashboard', 'dashboard'],
-      ['Inspect policy examples', 'https://github.com/jaysonzhao/maasdeploy/tree/main/rhoai-maas-guide/manifests/05-maas-models'],
+      ['OpenShift AI: MaaS authorization policies', 'dashboard:/maas/maas-governance/auth-policies'],
+      ['OpenShift CRD: MaaSAuthPolicy', 'crd:maasauthpolicies.maas.opendatahub.io'],
       ['Read: govern LLM access with MaaS', docs.maas],
     ],
     commandTitle: 'Inspect authorization policy resources', command: 'oc get maasauthpolicy -A', commandNote: 'The exact policy name and group values depend on the identity provider and model.',
@@ -73,8 +73,8 @@ const steps = [
       'If you use the option to create a matching authorization policy, verify both resources after creation; synchronize later edits manually.',
     ],
     links: [
-      ['Open the OpenShift AI dashboard', 'dashboard'],
-      ['Inspect subscription examples', 'https://github.com/jaysonzhao/maasdeploy/tree/main/rhoai-maas-guide/manifests/05-maas-models'],
+      ['OpenShift AI: MaaS subscriptions', 'dashboard:/maas/maas-governance'],
+      ['OpenShift CRD: MaaSSubscription', 'crd:maassubscriptions.maas.opendatahub.io'],
       ['Read: MaaS subscriptions and access governance', docs.maas],
     ],
     commandTitle: 'Inspect subscriptions', command: 'oc get maassubscription -n models-as-a-service', commandNote: 'Check the model, groups, priority, token limits, and rate-limit settings before issuing keys.',
@@ -84,16 +84,16 @@ const steps = [
     id: 'apikey', title: 'Generate an API key', short: 'API key', number: '05', icon: '⌘', label: 'CONNECT', badge: 'SECRET SHOWN ONCE',
     lead: 'Create a key scoped to the right subscription, then store it in an approved secret manager and use it only from a trusted client.',
     summaryTitle: 'API keys are subscription-scoped credentials',
-    summary: 'A MaaS API key grants the access of its associated subscription. The key value is displayed only when it is created, so copy it directly to approved secure storage. Administrators can create keys for users; the default maximum expiry is 90 days and administrators can configure that limit. Users can also create a temporary one-hour key from a model endpoint.',
+    summary: 'A MaaS API key grants the access of its associated subscription. The key value is displayed only when it is created, so copy it directly to approved secure storage. Administrators can create keys for users; the default maximum expiry is 90 days and administrators can configure that limit on the MaaS Tenant custom resource. Key records are managed by MaaS, not through a key CRD. Users can also create a temporary one-hour key from a model endpoint.',
     checklist: [
       'Open Settings → MaaS governance → API keys and create a key for the intended user and subscription, or use the endpoint details for a short-lived test key.',
       'Copy the plaintext key once to a secret manager. Never paste it into this portal, a terminal transcript, Git, a screenshot, or a public notebook.',
       'For this repository’s scheduled demo, scripts/run-maas-loadtest.sh creates regular free/premium demo keys and stores them in an OpenShift Secret; it does not print them.',
     ],
     links: [
-      ['Open the OpenShift AI dashboard', 'dashboard'],
+      ['OpenShift AI: MaaS API keys', 'dashboard:/maas/tokens'],
+      ['OpenShift CRD: Tenant key settings', 'crd:tenants.maas.opendatahub.io'],
       ['Read: create and manage MaaS API keys', docs.maas],
-      ['Review the load-test key lifecycle script', 'https://github.com/jaysonzhao/maasdeploy/blob/main/scripts/run-maas-loadtest.sh'],
     ],
     commandTitle: 'For an approved local client', command: 'export MAAS_API_KEY="<read-from-your-secret-manager>"', commandNote: 'This guide does not read, submit, or save the key. Avoid putting it in shell history.',
     callout: 'The MaaS key value is shown once. If it is lost, revoke it and create a replacement.',
@@ -111,9 +111,9 @@ const steps = [
       'When the demonstration is over, run the cleanup script to revoke keys and remove the namespace.',
     ],
     links: [
-      ['Open the OpenShift console', 'console'],
-      ['Open the load-test runbook', 'https://github.com/jaysonzhao/maasdeploy/blob/main/content/modules/ROOT/pages/09-load-test.adoc'],
-      ['Inspect CronJob manifest', 'https://github.com/jaysonzhao/maasdeploy/blob/main/manifests/09-load-test/cronjob.yaml'],
+      ['OpenShift AI: MaaS usage dashboard', 'dashboard:/observe-and-monitor/dashboard'],
+      ['OpenShift CRD: MaaSSubscription rate limits', 'crd:maassubscriptions.maas.opendatahub.io'],
+      ['OpenShift resource: maas-rate-limit-demo CronJob', 'console:/k8s/ns/maas-load-test/cronjobs/maas-rate-limit-demo'],
     ],
     commandTitle: 'Install or refresh the demo workload', command: './scripts/run-maas-loadtest.sh\noc get cronjob,job,pod -n maas-load-test\noc logs -n maas-load-test -l app.kubernetes.io/name=maas-rate-limit-demo -c free-tier\noc logs -n maas-load-test -l app.kubernetes.io/name=maas-rate-limit-demo -c premium-tier', commandNote: 'Each run is bounded. For teardown: ./scripts/cleanup-maas-loadtest.sh',
     source: ['MaaS access and rate limits', docs.maas], next: 'monitoring',
@@ -130,8 +130,8 @@ const steps = [
       'If there is no dashboard or usage, check the observability dashboard feature flag, tenant telemetry, Kuadrant gateway metrics, and Prometheus scraping.',
     ],
     links: [
-      ['Open the OpenShift AI dashboard', 'dashboard'],
-      ['Open the repository observability runbook', 'https://github.com/jaysonzhao/maasdeploy/blob/main/content/modules/ROOT/pages/07-observability.adoc'],
+      ['OpenShift AI: MaaS usage dashboard', 'dashboard:/observe-and-monitor/dashboard'],
+      ['OpenShift CRD: Tenant telemetry settings', 'crd:tenants.maas.opendatahub.io'],
       ['Read: MaaS usage dashboard and telemetry', docs.maas],
     ],
     commandTitle: 'Quick checks for telemetry and workload', command: 'oc get maastenantconfig -n models-as-a-service\noc get telemetrypolicy -A\noc get jobs,pods -n maas-load-test', commandNote: 'RHOAI 3.4 uses Tenant instead of MaasTenantConfig; follow the version-specific repository runbook.',
@@ -161,6 +161,17 @@ function escapeHtml(value) {
 function routeFor(value) {
   if (value === 'dashboard') return config.dashboardUrl;
   if (value === 'console') return config.consoleUrl;
+  if (value.startsWith('dashboard:')) {
+    return config.dashboardUrl ? `${config.dashboardUrl.replace(/\/+$/, '')}${value.slice('dashboard:'.length)}` : '';
+  }
+  if (value.startsWith('console:')) {
+    return config.consoleUrl ? `${config.consoleUrl.replace(/\/+$/, '')}${value.slice('console:'.length)}` : '';
+  }
+  if (value.startsWith('crd:')) {
+    return config.consoleUrl
+      ? `${config.consoleUrl.replace(/\/+$/, '')}/k8s/cluster/customresourcedefinitions/${value.slice('crd:'.length)}`
+      : '';
+  }
   return value;
 }
 
@@ -203,8 +214,8 @@ function render() {
   content.innerHTML = `
     <div class="step-header"><div><div class="eyebrow">STEP ${step.number} &nbsp;·&nbsp; ${step.label}</div><h1>${step.title}</h1><p class="lead">${step.lead}</p></div><div class="step-badge"><strong>${step.number}</strong> &nbsp; ${step.badge}</div></div>
     <article class="summary-card"><div class="summary-icon" aria-hidden="true">${step.icon}</div><div><h2>${step.summaryTitle}</h2><p>${step.summary}</p></div></article>
-    <div class="section-grid"><section class="info-card"><h2>What to do</h2><ul class="check-list">${items}</ul></section><section class="info-card"><h2>Open a workspace</h2><div class="action-list">${links}</div><p class="sr-only">External links open in a new tab.</p></section></div>
-    <section class="command-card" aria-label="Repository command"><div class="command-heading"><strong>${escapeHtml(step.commandTitle)}</strong><span>${escapeHtml(step.commandNote)}</span></div><div class="command-body"><pre><code>${escapeHtml(step.command)}</code></pre><button class="copy-button" type="button">Copy</button></div></section>
+    <div class="section-grid"><section class="info-card"><h2>What to do</h2><ul class="check-list">${items}</ul></section><section class="info-card"><h2>Open feature pages</h2><div class="action-list">${links}</div><p class="sr-only">External links open in a new tab.</p></section></div>
+    <section class="command-card" aria-label="Command snippet"><div class="command-heading"><strong>${escapeHtml(step.commandTitle)}</strong><span>${escapeHtml(step.commandNote)}</span></div><div class="command-body"><pre><code>${escapeHtml(step.command)}</code></pre><button class="copy-button" type="button">Copy</button></div></section>
     ${callout}
     <div class="step-controls"><div class="step-controls-left"><label class="complete-toggle"><input type="checkbox" ${completed.has(step.id) ? 'checked' : ''}><span>Mark this step complete</span></label></div><div class="step-controls-right"><button class="control-button previous" type="button" ${current === 0 ? 'disabled' : ''}>← Previous</button><button class="control-button primary next" type="button">${current === steps.length - 1 ? 'Back to start' : 'Next step'} →</button></div></div>
     <p class="sr-only source-note">Official reference: ${step.source[0]}</p>`;
