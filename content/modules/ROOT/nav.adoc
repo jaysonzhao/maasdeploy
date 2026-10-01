@@ -17,6 +17,9 @@
 .Load and Deployment Demo
 * xref:09-load-test.adoc[End-to-End Deployment & Rate-Limit Demo]
 
+.Guided Access Portal
+* xref:11-maas-portal.adoc[MaaS Guided Journey Portal]
+
 .External Models
 * xref:08-external-models.adoc[Phase 8: External Models]
 

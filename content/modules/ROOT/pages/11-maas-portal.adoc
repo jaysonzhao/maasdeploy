@@ -1,0 +1,61 @@
+= MaaS Guided Journey Portal
+
+The repository includes a small portal that walks an operator through model catalog discovery, model deployment, MaaS authorization, subscriptions, API keys, load testing, and usage monitoring. Each step summarizes the feature and links to the Red Hat OpenShift AI 3.5 documentation and related repository scripts or manifests.
+
+The portal follows the scenario-and-step navigation pattern of the link:https://github.com/wangzheng422/2026.07.public.ocp.observ.coo/tree/main/portal[COO observability portal reference]. It serves static files and does not query the cluster or accept API keys. Step completion is kept in that browser's local storage.
+
+== Deploy the portal
+
+The portal runs in a dedicated `maas-portal` namespace. An OpenShift OAuth proxy protects the Route using the user's OpenShift identity. The portal's Python server serves only its static guide content and cluster dashboard links. It has no Kubernetes API client and no MaaS credentials. The OAuth proxy can check authenticated-user access to the portal Service; the deployment's service account has delegated authentication permissions only.
+
+Log in to the intended OpenShift cluster and confirm the selected target before deployment:
+
+[source,bash]
+----
+oc whoami --show-server
+oc whoami
+----
+
+Deploy from the repository root:
+
+[source,bash]
+----
+./scripts/deploy-maas-portal.sh
+----
+
+The script discovers the cluster ingress domain and OpenShift AI dashboard Route, applies the namespaced resources, and prints the protected Route URL. It creates a random OAuth session secret once and reuses it on later updates. The cookie and portal source ConfigMaps do not contain MaaS API keys.
+
+To remove the portal, remove its namespaced resources and its one cluster-scoped OAuth delegation binding:
+
+[source,bash]
+----
+oc delete namespace maas-portal
+oc delete clusterrolebinding maas-guided-journey-auth-delegator
+----
+
+== Journey steps
+
+. *Model catalog* - admins configure model catalog sources and curate the models discoverable in the dashboard. Hugging Face sources expose public, non-gated models; model compatibility and quality still need to be assessed.
+. *Model deployment* - deploy a model in a data science project. llm-d topology choices depend on model, hardware, and workload; single-node is the default, while other choices require cluster support and configuration.
+. *Authorization policy* - specify the identity groups authorized to access a MaaS model.
+. *Subscription* - attach a group's model access to quota, token limits, rate limits, and priority. Keep the matching authorization policy in sync.
+. *API key* - issue a key associated with the selected subscription. The plaintext is shown once and must be put in secure storage; the portal never asks for it.
+. *Load test* - run the repository's bounded free/premium CronJob, scheduled every 20 minutes, to compare request behavior under different subscription limits.
+. *Monitoring* - inspect subscription-level usage, request counts, and rate-limit violations in the MaaS usage dashboard. It is a Technology Preview and not billing-grade accounting.
+
+== Run locally
+
+Use Python 3.9 or later; no third-party packages are required:
+
+[source,bash]
+----
+python3 portal/server.py
+----
+
+Open `http://localhost:8080`. When running outside OpenShift, dashboard and console links remain unconfigured until `DASHBOARD_URL`, `CONSOLE_URL`, and `CLUSTER_NAME` are set in the environment.
+
+== Official documentation
+
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/manage_and_govern_model_catalog_sources/index[Manage and govern model catalog sources]
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/index[Govern LLM access with Models as a Service]
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/deploy_models_using_distributed_inference_with_llm-d/index[Deploy models using distributed inference with llm-d]

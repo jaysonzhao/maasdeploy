@@ -24,6 +24,7 @@ Run commands from the repository root. `scripts/setup-maas.sh` is the end-to-end
 | Phase 8: external model providers | `manifests/08-external-models/`, `08-external-models.adoc` |
 | Phase 9: MLflow experiment tracking | `manifests/10-mlflow/mlflow.yaml`, `10-mlflow.adoc` |
 | 20-minute free/premium load demo | `scripts/run-maas-loadtest.sh`, `scripts/cleanup-maas-loadtest.sh`, `manifests/09-load-test/`, `09-load-test.adoc` |
+| Guided MaaS access portal | `portal/`, `scripts/deploy-maas-portal.sh`, `manifests/11-maas-portal/`, `11-maas-portal.adoc` |
 
 ## Safety and cluster selection
 
@@ -116,6 +117,15 @@ For model-only changes, use:
 ./scripts/deploy-model.sh --help
 ./scripts/deploy-model.sh --model simulator
 ```
+
+To publish the seven-step MaaS guided journey behind OpenShift OAuth, first check the selected cluster, then run:
+
+```bash
+oc whoami --show-server
+./scripts/deploy-maas-portal.sh
+```
+
+The portal serves static feature descriptions and links only. It does not read cluster objects or accept API keys. Read `content/modules/ROOT/pages/11-maas-portal.adoc` for its deployment and cleanup steps.
 
 Check model readiness and the MaaS catalog:
 

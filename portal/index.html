@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101a2c">
+    <title>MaaS Guided Journey</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to the guide</a>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="MaaS Guided Journey home">
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <span><strong>Models as a Service</strong><small>Guided journey</small></span>
+      </a>
+      <div class="top-actions">
+        <span class="cluster-label"><span class="status-dot"></span><span id="cluster-name">OpenShift cluster</span></span>
+        <a class="button button-quiet" id="dashboard-link" href="#" target="_blank" rel="noreferrer">OpenShift AI dashboard <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar" aria-label="Journey steps">
+        <div class="journey-label">YOUR JOURNEY</div>
+        <div class="progress-copy"><span id="progress-count">0 of 7 complete</span><span id="progress-percent">0%</span></div>
+        <div class="progress-track progress-0" role="progressbar" aria-label="Journey progress" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0" id="progress-bar"><span id="progress-fill"></span></div>
+        <nav id="step-nav" class="step-nav"></nav>
+        <div class="sidebar-footer">
+          <span class="lock-icon" aria-hidden="true">▣</span>
+          <p>Sign in with your OpenShift account. This guide never asks for or stores your MaaS API key.</p>
+        </div>
+      </aside>
+
+      <main id="main" class="main-content" tabindex="-1">
+        <div class="breadcrumb"><span>MAAS GUIDE</span><span aria-hidden="true">/</span><span id="breadcrumb-step">MODEL CATALOG</span></div>
+        <section id="step-content" aria-live="polite" aria-atomic="true"></section>
+        <footer class="content-footer">
+          <a href="https://github.com/jaysonzhao/maasdeploy" target="_blank" rel="noreferrer">Repository <span aria-hidden="true">↗</span></a>
+          <span>Feature descriptions link to Red Hat OpenShift AI 3.5 documentation.</span>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>
