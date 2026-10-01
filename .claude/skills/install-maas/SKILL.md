@@ -1,7 +1,7 @@
 ---
 name: install-maas
 description: Deploy, resume, verify, observe, or remove Red Hat OpenShift AI Models as a Service (MaaS) resources using this repository's scripts and manifests.
-argument-hint: "[--model simulator|granite-tiny-gpu|gpt-oss-20b|auto] [--from-phase N] [--with-observability] [--with-external-models]"
+argument-hint: "[--model simulator|granite-tiny-gpu|gpt-oss-20b|auto] [--from-phase N] [--with-observability] [--with-external-models] [--with-mlflow]"
 allowed-tools: Bash(oc *), Bash(./*), Bash(envsubst *), Bash(curl *), Bash(jq *), Bash(grep *), Bash(ls *), Bash(cat *), Bash(date *), Bash(mkdir *), Bash(echo *), Bash(bash *), AskUserQuestion
 ---
 
@@ -22,6 +22,7 @@ Run commands from the repository root. `scripts/setup-maas.sh` is the end-to-end
 | Phase 6: verification | `scripts/verify-maas.sh`, `manifests/06-verification/verify.sh`, `06-verification.adoc` |
 | Phase 7: observability and MaaS usage dashboard | `manifests/07-observability/`, `07-observability.adoc` |
 | Phase 8: external model providers | `manifests/08-external-models/`, `08-external-models.adoc` |
+| Phase 9: MLflow experiment tracking | `manifests/10-mlflow/mlflow.yaml`, `10-mlflow.adoc` |
 | 20-minute free/premium load demo | `scripts/run-maas-loadtest.sh`, `scripts/cleanup-maas-loadtest.sh`, `manifests/09-load-test/`, `09-load-test.adoc` |
 
 ## Safety and cluster selection
@@ -71,6 +72,7 @@ The script phases are:
 | 6 | End-to-end API, authentication, inference, and rate-limit verification |
 | 7 | Optional Tempo, OpenTelemetry, Cluster Observability Operator (COO), DSCI monitoring, dashboard flag, and tenant telemetry |
 | 8 | Optional OpenAI, Gemini, or Bedrock external model setup |
+| 9 | Optional RHOAI MLflow server with SQLite and a persistent test volume |
 
 Common invocations:
 
@@ -91,9 +93,18 @@ Common invocations:
 
 # Add/repair observability on an existing deployment, including the console flag
 ./scripts/setup-maas.sh --from-phase 7 --with-observability
+
+# Enable the RHOAI MLflow experiment tracking server
+./scripts/setup-maas.sh --from-phase 9 --with-mlflow
 ```
 
-`--from-phase N` skips phases before `N`; it does not force earlier phases to run. `--skip-models` skips phase 5 and `--skip-verify` skips phase 6. Phase 7 only runs when `--with-observability` is supplied. Phase 8 only runs when `--with-external-models` is supplied.
+`--from-phase N` skips phases before `N`; it does not force earlier phases to run. `--skip-models` skips phase 5 and `--skip-verify` skips phase 6. Phase 7 only runs when `--with-observability` is supplied. Phase 8 only runs when `--with-external-models` is supplied. Phase 9 only runs when `--with-mlflow` is supplied.
+
+## MLflow experiment tracking
+
+RHOAI 3.5 dashboard visibility follows the `mlflowoperator` state in the DataScienceCluster; do not add the deprecated dashboard `mlflow` feature flag. Phase 4 already manages the operator. Phase 9 creates the cluster-scoped `MLflow/mlflow` resource from `manifests/10-mlflow/mlflow.yaml` and waits for `Available=True`.
+
+The repository manifest is for development and test: one replica, SQLite metadata, a 10 GiB `ReadWriteOnce` volume, and local file artifact storage. The installed RHOAI 3.5 MLflow CRD requires `serveArtifacts: true` with a file artifact destination, while the Red Hat guide cautions that artifact serving with file storage and a PVC is unsupported. Treat it as a UI/tracking demo and use PostgreSQL plus S3-compatible storage from Secrets for production or dependable artifact transfer. For workbench integration, dashboard-managed notebooks receive the MLflow annotation automatically; GitOps-managed notebooks need `opendatahub.io/mlflow-instance: mlflow` and a restart. Read `content/modules/ROOT/pages/10-mlflow.adoc` before changing storage or notebook annotations.
 
 ## Manual deployment
 

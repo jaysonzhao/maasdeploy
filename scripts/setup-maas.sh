@@ -12,6 +12,7 @@
 #   Phase 6: Verify  - run 6-phase E2E verification
 #   Phase 7: Observability (optional)  - Tempo + OpenTelemetry + COO + Gateway telemetry
 #   Phase 8: External models (optional) - deploy ExternalModel (e.g. OpenAI, Gemini)
+#   Phase 9: MLflow (optional) - deploy the RHOAI experiment tracking server
 #
 # Each phase is idempotent  - re-running skips what's already done.
 #
@@ -25,6 +26,7 @@
 #   --skip-verify        Skip Phase 6 (verification)
 #   --with-observability Also run Phase 7 (Tempo + OpenTelemetry + COO + telemetry)
 #   --with-external-models Also run Phase 8 (ExternalModel deployment)
+#   --with-mlflow        Also run Phase 9 (development/test MLflow instance)
 #   --external-model-api-key <key>  API key for external provider (or EXTERNAL_MODEL_API_KEY env var)
 #   --dry-run            Preview without applying
 #   -h, --help           Show this help message
@@ -58,6 +60,7 @@ SKIP_MODELS=false
 SKIP_VERIFY=false
 WITH_OBSERVABILITY=false
 WITH_EXTERNAL_MODELS=false
+WITH_MLFLOW=false
 EXTERNAL_MODEL_PROVIDER="${EXTERNAL_MODEL_PROVIDER:-openai}"
 EXTERNAL_MODEL_API_KEY="${EXTERNAL_MODEL_API_KEY:-}"
 DRY_RUN=false
@@ -70,6 +73,7 @@ while [[ $# -gt 0 ]]; do
         --skip-verify) SKIP_VERIFY=true; shift ;;
         --with-observability) WITH_OBSERVABILITY=true; shift ;;
         --with-external-models) WITH_EXTERNAL_MODELS=true; shift ;;
+        --with-mlflow) WITH_MLFLOW=true; shift ;;
         --external-model-provider) EXTERNAL_MODEL_PROVIDER="$2"; shift 2 ;;
         --external-model-api-key) EXTERNAL_MODEL_API_KEY="$2"; shift 2 ;;
         --dry-run) DRY_RUN=true; shift ;;
@@ -77,17 +81,18 @@ while [[ $# -gt 0 ]]; do
             cat <<'EOF'
 Usage: setup-maas.sh [OPTIONS]
 
-End-to-end MaaS deployment on RHOAI 3.4. Runs all phases from operator
+End-to-end MaaS deployment on RHOAI. Runs all phases from operator
 installation through model deployment and verification. Each phase is
 idempotent  - re-running skips what's already done.
 
 Options:
   --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, auto (default: auto)
-  --from-phase <N>     Start from phase N (0-8, default: 0)
+  --from-phase <N>     Start from phase N (0-9, default: 0)
   --skip-models        Skip Phase 5 (model deployment)
   --skip-verify        Skip Phase 6 (verification)
   --with-observability Also run Phase 7 (Tempo + OpenTelemetry + COO + Gateway telemetry)
   --with-external-models Also run Phase 8 (ExternalModel deployment + test)
+  --with-mlflow        Also run Phase 9 (development/test MLflow instance)
   --external-model-provider <p>   Provider: openai (default), gemini, bedrock (or set EXTERNAL_MODEL_PROVIDER)
   --external-model-api-key <key>  API key for external provider (or set EXTERNAL_MODEL_API_KEY)
   --dry-run            Preview without applying
@@ -103,6 +108,7 @@ Phases:
   6  Verify             6-phase E2E verification (API, auth, rate limits)
   7  Observability      Tempo + OpenTelemetry + COO + Gateway telemetry (only with --with-observability)
   8  External models    ExternalModel + governance (only with --with-external-models)
+  9  MLflow             SQLite + persistent file storage (only with --with-mlflow)
 
 Auto-detection (--model auto):
   No GPU             -> simulator (CPU-only, ~30s startup)
@@ -252,6 +258,7 @@ should_run 5 && [ "$SKIP_MODELS" = false ] && PHASES_TO_RUN="$PHASES_TO_RUN 5"
 should_run 6 && [ "$SKIP_VERIFY" = false ] && PHASES_TO_RUN="$PHASES_TO_RUN 6"
 should_run 7 && [ "$WITH_OBSERVABILITY" = true ] && PHASES_TO_RUN="$PHASES_TO_RUN 7"
 should_run 8 && [ "$WITH_EXTERNAL_MODELS" = true ] && PHASES_TO_RUN="$PHASES_TO_RUN 8"
+should_run 9 && [ "$WITH_MLFLOW" = true ] && PHASES_TO_RUN="$PHASES_TO_RUN 9"
 echo ""
 log_info "Phases to run:${PHASES_TO_RUN:- (none)}"
 
@@ -1133,6 +1140,29 @@ if should_run 8 && [ "$WITH_EXTERNAL_MODELS" = true ]; then
 fi
 
 # =============================================================================
+# Phase 9: MLflow (Optional)
+# =============================================================================
+if should_run 9 && [ "$WITH_MLFLOW" = true ]; then
+    log_phase 9 "MLflow experiment tracking (development/test)"
+
+    MLFLOW_OPERATOR_STATE=$(oc get datasciencecluster default-dsc \
+        -o jsonpath='{.spec.components.mlflowoperator.managementState}' 2>/dev/null || echo "")
+    if [ "$MLFLOW_OPERATOR_STATE" != "Managed" ]; then
+        log_error "The MLflow operator is not Managed in DataScienceCluster/default-dsc. Enable it in Phase 4 before running Phase 9."
+        exit 1
+    fi
+
+    log_step "Applying the cluster-scoped MLflow instance..."
+    run_cmd oc apply -f "$MANIFESTS_DIR/10-mlflow/mlflow.yaml"
+
+    if [ "$DRY_RUN" = false ]; then
+        log_info "Waiting for MLflow condition Available=True..."
+        run_cmd oc wait --for=condition=Available mlflow/mlflow --timeout=600s
+        log_info "MLflow is available"
+    fi
+fi
+
+# =============================================================================
 # Final Summary
 # =============================================================================
 echo ""
@@ -1173,12 +1203,18 @@ else
         done
     fi
 
+    if [ "$WITH_MLFLOW" = true ]; then
+        MLFLOW_URL=$(oc get mlflow mlflow -o jsonpath='{.status.url}' 2>/dev/null || echo "")
+        log_info "MLflow:        $([ -n "$MLFLOW_URL" ] && echo "$MLFLOW_URL" || echo "deployed; URL pending")"
+    fi
+
     echo ""
     log_info "Next steps:"
     [ "$SKIP_MODELS" = true ] && log_info "  Deploy models:      ./scripts/deploy-model.sh --model auto"
     [ "$SKIP_VERIFY" = true ] && log_info "  Run verification:   ./scripts/verify-maas.sh"
     [ "$WITH_OBSERVABILITY" = false ] && log_info "  Add observability:  $0 --from-phase 7 --with-observability"
     [ "$WITH_EXTERNAL_MODELS" = false ] && log_info "  Add external models: $0 --from-phase 8 --with-external-models --external-model-provider openai --external-model-api-key <KEY>"
+    [ "$WITH_MLFLOW" = false ] && log_info "  Add MLflow:          $0 --from-phase 9 --with-mlflow"
     log_info "  RHOAI Dashboard:    https://$(oc get route rhods-dashboard -n redhat-ods-applications -o jsonpath='{.spec.host}' 2>/dev/null || echo '<dashboard-route>')"
 fi
 

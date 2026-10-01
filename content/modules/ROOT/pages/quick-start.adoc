@@ -26,7 +26,7 @@ This runs Phases 0-6 automatically. The script detects what's already installed 
 | `auto`
 
 | `--from-phase <N>`
-| Start from phase N (0-7), skipping earlier phases
+| Start from phase N (0-9), skipping earlier phases
 | `0`
 
 | `--skip-models`
@@ -39,6 +39,14 @@ This runs Phases 0-6 automatically. The script detects what's already installed 
 
 | `--with-observability`
 | Also run Phase 7 (COO + Gateway telemetry)
+|
+
+| `--with-external-models`
+| Also run Phase 8 (ExternalModel deployment; requires provider configuration)
+|
+
+| `--with-mlflow`
+| Also run Phase 9 (development/test MLflow instance)
 |
 
 | `--dry-run`
@@ -83,6 +91,14 @@ This runs Phases 0-6 automatically. The script detects what's already installed 
 | 7
 | Observability - COO subscription + Gateway TelemetryPolicy
 | 2-3 min
+
+| 8
+| External models - provider integration (optional)
+| 2-5 min
+
+| 9
+| MLflow - experiment tracking server (optional)
+| 2-5 min
 |===
 
 == Common Usage Patterns
@@ -102,6 +118,15 @@ For a fresh cluster with no MaaS components:
 ----
 ./scripts/setup-maas.sh --with-observability
 ----
+
+=== With MLflow
+
+[source,bash]
+----
+./scripts/setup-maas.sh --with-mlflow
+----
+
+On an existing MaaS installation, run only Phase 9 with `./scripts/setup-maas.sh --from-phase 9 --with-mlflow`. See xref:10-mlflow.adoc[Phase 9: MLflow] for storage choices, workbench integration, and verification.
 
 === Resume from a specific phase
 

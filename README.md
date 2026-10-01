@@ -41,6 +41,12 @@ Each phase has step-by-step instructions, status gates, and troubleshooting.
 |-------|-------------|------|
 | [7. Observability](https://rh-aiservices-bu.github.io/rhoai-maas-guide/modules/main/07-observability.html) *(optional)* | COO, MaaS tenant telemetry, and OpenShift AI usage dashboard | 5 min |
 
+### Experiment Tracking
+
+| Phase | Description | Time |
+|-------|-------------|------|
+| [9. MLflow](https://rh-aiservices-bu.github.io/rhoai-maas-guide/modules/main/10-mlflow.html) *(optional)* | RHOAI MLflow tracking server with SQLite and persistent development/test storage | 2-5 min |
+
 ### Rate-Limit Load Demo
 
 The [end-to-end deployment and rate-limit runbook](https://rh-aiservices-bu.github.io/rhoai-maas-guide/modules/main/09-load-test.html) covers full-stack setup, a 20-minute CronJob that compares free and premium subscriptions, dashboard/log inspection, and cleanup.
@@ -63,6 +69,12 @@ With observability (Cluster Observability Operator + MaaS tenant telemetry + usa
 
 ```bash
 ./scripts/setup-maas.sh --with-observability
+```
+
+With MLflow experiment tracking:
+
+```bash
+./scripts/setup-maas.sh --with-mlflow
 ```
 
 ## Available Models

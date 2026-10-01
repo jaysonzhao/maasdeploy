@@ -1,0 +1,91 @@
+= Phase 9: MLflow Experiment Tracking
+
+RHOAI 3.5 includes a managed MLflow operator. This optional phase creates the cluster's single MLflow tracking server so users can record and compare experiment runs from the OpenShift AI dashboard and connected workbenches.
+
+The repository manifest is a development/test configuration: SQLite metadata and a 10 GiB persistent volume for local storage. For production, use PostgreSQL and S3-compatible artifact storage with credentials supplied through Kubernetes Secrets; do not use SQLite or a local PVC for a highly available deployment.
+
+== Prerequisites
+
+* RHOAI 3.5 is installed and the `mlflowoperator` component in `DataScienceCluster/default-dsc` is `Managed`.
+* The current `oc` context is the intended cluster and has cluster-admin permissions.
+* A default or explicitly configured storage class can provision a 10 GiB `ReadWriteOnce` PVC.
+
+Phase 4 of this guide configures `mlflowoperator` as `Managed`. RHOAI 3.5 determines dashboard MLflow availability from that component; do not add the deprecated `spec.dashboardConfig.mlflow` flag.
+
+== Deploy with the setup script
+
+For a complete MaaS install with MLflow:
+
+[source,bash]
+----
+./scripts/setup-maas.sh --with-mlflow
+----
+
+To enable MLflow on an existing cluster without rerunning earlier phases:
+
+[source,bash]
+----
+./scripts/setup-maas.sh --from-phase 9 --with-mlflow
+----
+
+The script checks that `mlflowoperator` is managed, applies the cluster-scoped `MLflow/mlflow` resource, and waits for its `Available=True` condition.
+
+To apply the resource manually:
+
+[source,bash]
+----
+oc apply -f manifests/10-mlflow/mlflow.yaml
+oc wait --for=condition=Available mlflow/mlflow --timeout=600s
+----
+
+== Verify
+
+Check the resource condition, server URL, and persistent claim:
+
+[source,bash]
+----
+oc get mlflow mlflow -o yaml
+oc get pvc -n redhat-ods-applications
+oc get pods -n redhat-ods-applications -l app.kubernetes.io/name=mlflow
+----
+
+Open the OpenShift AI dashboard, then choose *Applications → MLflow*. Select a workspace to inspect experiments and runs. RHOAI allows one cluster-scoped `MLflow` instance, and its resource must be named `mlflow`.
+
+== Connect a workbench
+
+When a workbench is created or updated through the dashboard, the dashboard manages its MLflow annotation if Dashboard, MLflow, and Workbenches are managed in the `DataScienceCluster`. For workbenches managed outside the dashboard, stop the workbench and annotate its Notebook resource, then start it again:
+
+[source,bash]
+----
+oc annotate notebook -n <project> <workbench> opendatahub.io/mlflow-instance=mlflow
+----
+
+The notebook controller injects `MLFLOW_TRACKING_URI`, `MLFLOW_K8S_INTEGRATION`, and `MLFLOW_TRACKING_AUTH`, and creates a namespace-scoped RoleBinding. Verify the integration after restarting the workbench:
+
+[source,bash]
+----
+oc get rolebinding -n <project> <workbench>-mlflow
+----
+
+In a workbench notebook, the MLflow SDK can then use the injected configuration:
+
+[source,python]
+----
+import mlflow
+
+mlflow.set_experiment("maas-demo")
+with mlflow.start_run():
+    mlflow.log_param("model", "simulator")
+    mlflow.log_metric("request_count", 1)
+----
+
+== Storage notes
+
+The manifest uses a single replica because a `ReadWriteOnce` volume and SQLite are not suitable for multiple concurrent MLflow server pods. The installed MLflow CRD on the target RHOAI 3.5 cluster requires `serveArtifacts: true` when `artifactsDestination` is file-based, so this manifest follows the schema accepted by that cluster. The Red Hat guide cautions that file artifact serving together with `spec.storage` is unsupported. Treat this setup as a development/test instance, and use the guide's PostgreSQL and S3-compatible storage configuration with Secret-based credentials when artifact transfer or production reliability is required.
+
+The local file backend is for development and test workloads only. The resource reached `Available` and the UI route responds, but that does not verify artifact upload/download behavior for this file-backed configuration. Do not scale this PVC-backed SQLite instance to multiple replicas or treat it as highly available. Use remote object storage with PostgreSQL for production.
+
+== References
+
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_mlflow/installing-mlflow_mlflow[Install and configure MLflow, RHOAI 3.5]
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_mlflow/tracking-experiments-with-mlflow-in-workbenches[Track experiments with MLflow in workbenches, RHOAI 3.5]

@@ -20,6 +20,9 @@
 .External Models
 * xref:08-external-models.adoc[Phase 8: External Models]
 
+.Experiment Tracking
+* xref:10-mlflow.adoc[Phase 9: MLflow]
+
 .Reference
 * xref:08-architecture.adoc[Architecture & Request Flow]
 
