@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small stdlib-only static server for the MaaS guided journey portal."""
+"""Small stdlib-only static server for the guided journey portal."""
 
 import json
 import os
@@ -28,6 +28,8 @@ class PortalHandler(SimpleHTTPRequestHandler):
                     "dashboardUrl": os.environ.get("DASHBOARD_URL", ""),
                     "consoleUrl": os.environ.get("CONSOLE_URL", ""),
                     "clusterName": os.environ.get("CLUSTER_NAME", "OpenShift cluster"),
+                    "agentDemoUrl": os.environ.get("AGENT_DEMO_URL", ""),
+                    "agentDemoNamespace": os.environ.get("AGENT_DEMO_NAMESPACE", ""),
                 }
             ).encode("utf-8")
             self.send_response(200)

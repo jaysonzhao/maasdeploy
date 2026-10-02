@@ -39,14 +39,7 @@ button { font: inherit; }
 .progress-copy { display: flex; justify-content: space-between; margin: 1.1rem .7rem .55rem; color: #b6c6dc; font-size: .74rem; }
 #progress-percent { color: var(--accent); font-weight: 700; }
 .progress-track { height: 4px; margin: 0 .7rem 1.8rem; background: #24344b; border-radius: 10px; overflow: hidden; }
-.progress-track span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #59cbbb, #77b1ff); transition: width .3s ease; }
-.progress-track.progress-1 span { width: 14.28%; }
-.progress-track.progress-2 span { width: 28.57%; }
-.progress-track.progress-3 span { width: 42.85%; }
-.progress-track.progress-4 span { width: 57.14%; }
-.progress-track.progress-5 span { width: 71.42%; }
-.progress-track.progress-6 span { width: 85.71%; }
-.progress-track.progress-7 span { width: 100%; }
+.progress-track span { display: block; height: 100%; width: var(--progress, 0%); background: linear-gradient(90deg, #59cbbb, #77b1ff); transition: width .3s ease; }
 .step-nav { display: grid; gap: .34rem; }
 .step-link { width: 100%; display: grid; grid-template-columns: 28px 1fr 18px; align-items: center; gap: .65rem; padding: .72rem .66rem; color: #9fb0c7; text-align: left; border: 1px solid transparent; border-radius: .7rem; background: transparent; cursor: pointer; transition: .16s ease; }
 .step-link:hover { color: #e7f0ff; background: #17243a; }
@@ -137,3 +130,27 @@ h1 { max-width: 740px; margin-bottom: .8rem; font: 700 clamp(2rem, 4vw, 3.1rem)/
   .content-footer { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+
+.journey-selector { display: grid; gap: .36rem; margin: .8rem .3rem .25rem; }
+.journey-selector button { padding: .62rem .7rem; border: 1px solid transparent; border-radius: .62rem; color: #9fb0c7; text-align: left; background: transparent; cursor: pointer; font-size: .77rem; font-weight: 650; }
+.journey-selector button:hover { color: #e7f0ff; background: #17243a; }
+.journey-selector button[aria-pressed=true] { color: #f0f6ff; border-color: #29465b; background: #172a40; box-shadow: inset 3px 0 var(--accent); }
+.architecture-card { margin-top: 1rem; padding: 1.2rem; border: 1px solid #2b3d55; border-radius: .9rem; background: rgba(12, 21, 36, .82); overflow: hidden; }
+.architecture-label { margin-bottom: .8rem; color: #8397b3; font: 700 .66rem ui-sans-serif, system-ui, sans-serif; letter-spacing: .12em; }
+.flow-row { display: flex; align-items: center; justify-content: space-between; gap: .65rem; }
+.flow-row > span, .trace-row > span { color: var(--accent); font-weight: 800; }
+.flow-node { padding: .78rem .85rem; border: 1px solid #344a67; border-radius: .7rem; color: #dbe8fa; background: #15243a; text-align: center; font-size: .8rem; font-weight: 700; }
+.flow-node small { color: #9aabc1; font-size: .68rem; font-weight: 500; }
+.guardrail-node { border-color: #348c86; background: #123034; }
+.trace-node { border-color: #5677ad; background: #192844; }
+.trace-row { display: flex; align-items: center; gap: .65rem; margin: .8rem 0 0 16%; padding-top: .8rem; border-top: 1px dashed #344761; color: #aebed2; font-size: .75rem; }
+.trace-note { color: #8294ad; }
+@media (max-width: 680px) {
+  .journey-selector { grid-template-columns: 1fr 1fr; margin: .3rem 0 .6rem; }
+  .journey-selector button { padding: .5rem .55rem; font-size: .72rem; }
+  .flow-row { flex-wrap: wrap; justify-content: center; }
+  .flow-row > span { font-size: .8rem; }
+  .flow-node { flex: 1 1 38%; }
+  .trace-row { margin-left: 0; flex-wrap: wrap; }
+  .top-actions #dashboard-link { display: none; }
+}

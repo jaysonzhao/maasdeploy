@@ -1,6 +1,6 @@
-= MaaS Guided Journey Portal
+= OpenShift AI Guided Journeys Portal
 
-The repository includes a small portal that walks an operator through model catalog discovery, model deployment, MaaS authorization, subscriptions, API keys, load testing, and usage monitoring. Each step summarizes the feature and links to the Red Hat OpenShift AI 3.5 documentation and related repository scripts or manifests.
+The repository includes a small portal with two guided journeys: the MaaS platform workflow and a guardrailed LangGraph agent demo. Each journey summarizes the feature, links to relevant OpenShift AI and console pages, and points to Red Hat OpenShift AI 3.5 documentation.
 
 The portal follows the scenario-and-step navigation pattern of the link:https://github.com/wangzheng422/2026.07.public.ocp.observ.coo/tree/main/portal[COO observability portal reference]. It serves static files and does not query the cluster or accept API keys. Step completion is kept in that browser's local storage.
 
@@ -23,7 +23,7 @@ Deploy from the repository root:
 ./scripts/deploy-maas-portal.sh
 ----
 
-The script discovers the cluster ingress domain and OpenShift AI dashboard Route, applies the namespaced resources, and prints the protected Route URL. It creates a random OAuth session secret once and reuses it on later updates. The cookie and portal source ConfigMaps do not contain MaaS API keys.
+The script discovers the cluster ingress domain, OpenShift AI dashboard Route, and (when present) the +langgraph-guardrailed-agent+ Route and namespace. The agent Route is runtime configuration, so the portal source contains no cluster hostname. It then applies the namespaced resources and prints the protected portal Route URL. It creates a random OAuth session secret once and reuses it on later updates. The cookie and portal source ConfigMaps do not contain MaaS API keys.
 
 To remove the portal, remove its namespaced resources and its one cluster-scoped OAuth delegation binding:
 
@@ -33,7 +33,11 @@ oc delete namespace maas-portal
 oc delete clusterrolebinding maas-guided-journey-auth-delegator
 ----
 
-== Journey steps
+== Guided journeys
+
+The sidebar selector switches between the two journeys. Step completion is stored separately for each journey in the current browser.
+
+=== MaaS platform
 
 . *Model catalog* - admins configure model catalog sources and curate the models discoverable in the dashboard. Hugging Face sources expose public, non-gated models; model compatibility and quality still need to be assessed.
 . *Model deployment* - deploy a model in a data science project. llm-d topology choices depend on model, hardware, and workload; single-node is the default, while other choices require cluster support and configuration.
@@ -42,6 +46,21 @@ oc delete clusterrolebinding maas-guided-journey-auth-delegator
 . *API key* - issue a key associated with the selected subscription. The plaintext is shown once and must be put in secure storage; the portal never asks for it.
 . *Load test* - run the repository's bounded free/premium CronJob, scheduled every 20 minutes, to compare request behavior under different subscription limits.
 . *Monitoring* - inspect subscription-level usage, request counts, and rate-limit violations in the MaaS usage dashboard. It is a Technology Preview and not billing-grade accounting.
+
+=== Guardrailed agent
+
+. *Architecture* - follow the LangGraph request through the NeMo Guardrails proxy to the model, with the separate agent-to-MLflow trace path.
+. *NeMo operator* - enable the TrustyAI component in the DataScienceCluster and wait for the NemoGuardrails API.
+. *NeMo instance and configuration* - reference the rail ConfigMap from a NemoGuardrails resource; store credentials in Kubernetes Secrets.
+. *MLflow operator* - enable the MLflow Operator component in the DataScienceCluster.
+. *MLflow instance and tracing configuration* - verify the shared MLflow service, optionally create a project MLflowConfig for a project-specific artifact-storage override, and configure in-pod SDK authentication and TLS. A dedicated service account needs a namespace-scoped binding to the MLflow integration role.
+. *Agent deployment* - point BASE_URL to the NeMo Service, build and deploy the example, and verify agent health.
+. *Normal interactions* - try a greeting and a banking question using the fictional ACCT-12345 account identifier.
+. *Content safety* - send the sample unsafe request and confirm refusal behavior for the configured input/output safety checks.
+. *Topic boundaries* - ask for a harmless but out-of-scope recipe and confirm the assistant redirects to banking.
+. *Regex filtering* - send a configured prompt-injection phrase and confirm the deterministic regex input rail blocks it. Coverage is limited to the configured expressions.
+
+In-pod tracing is distinct from NeMo rail tracing: MLflow captures the LangGraph agent run and its model call, while NeMo OpenTelemetry instrumentation is needed to inspect per-rail execution details. The agent link is populated from the discovered Route when this portal is deployed.
 
 == Run locally
 
@@ -52,10 +71,12 @@ Use Python 3.9 or later; no third-party packages are required:
 python3 portal/server.py
 ----
 
-Open `http://localhost:8080`. When running outside OpenShift, dashboard and console links remain unconfigured until `DASHBOARD_URL`, `CONSOLE_URL`, and `CLUSTER_NAME` are set in the environment.
+Open `http://localhost:8080`. When running outside OpenShift, dashboard and console links remain unconfigured until +DASHBOARD_URL+, +CONSOLE_URL+, and +CLUSTER_NAME+ are set in the environment. The agent demo link also requires +AGENT_DEMO_URL+ and +AGENT_DEMO_NAMESPACE+.
 
 == Official documentation
 
 * link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/manage_and_govern_model_catalog_sources/index[Manage and govern model catalog sources]
 * link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/index[Govern LLM access with Models as a Service]
 * link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/deploy_models_using_distributed_inference_with_llm-d/index[Deploy models using distributed inference with llm-d]
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/enabling_ai_safety_with_guardrails/index[Enable AI safety with Guardrails]
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_mlflow/index[Work with MLflow]

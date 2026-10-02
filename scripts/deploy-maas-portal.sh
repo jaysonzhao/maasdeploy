@@ -35,6 +35,18 @@ if [[ -z "${DASHBOARD_HOST}" ]]; then
     exit 1
 fi
 
+AGENT_ROUTE_ROW="$(oc get routes -A -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.namespace}{"\t"}{.spec.host}{"\t"}{.spec.tls.termination}{"\n"}{end}' 2>/dev/null | awk -F '\t' '$1 == "langgraph-guardrailed-agent" && $3 != "" { print $2 "\t" $3 "\t" $4; exit }' || true)"
+AGENT_DEMO_NAMESPACE=""
+AGENT_DEMO_URL=""
+if [[ -n "${AGENT_ROUTE_ROW}" ]]; then
+    IFS=$'\t' read -r AGENT_DEMO_NAMESPACE AGENT_DEMO_HOST AGENT_ROUTE_TLS <<< "${AGENT_ROUTE_ROW}"
+    AGENT_ROUTE_SCHEME="http"
+    if [[ -n "${AGENT_ROUTE_TLS}" ]]; then
+        AGENT_ROUTE_SCHEME="https"
+    fi
+    AGENT_DEMO_URL="${AGENT_ROUTE_SCHEME}://${AGENT_DEMO_HOST}"
+fi
+
 if [[ "${CLUSTER_DOMAIN}" == apps.* ]]; then
     CONSOLE_HOST="console-openshift-console.${CLUSTER_DOMAIN}"
 else
@@ -58,6 +70,8 @@ oc create configmap maas-guided-journey-settings -n "${NAMESPACE}" \
     --from-literal="DASHBOARD_URL=${DASHBOARD_URL}" \
     --from-literal="CONSOLE_URL=${CONSOLE_URL}" \
     --from-literal="CLUSTER_NAME=${CLUSTER_NAME}" \
+    --from-literal="AGENT_DEMO_URL=${AGENT_DEMO_URL}" \
+    --from-literal="AGENT_DEMO_NAMESPACE=${AGENT_DEMO_NAMESPACE}" \
     --dry-run=client -o yaml | oc apply -f - >/dev/null
 
 if ! oc get secret maas-guided-journey-cookie -n "${NAMESPACE}" >/dev/null 2>&1; then
@@ -74,3 +88,8 @@ oc rollout status deployment/maas-guided-journey -n "${NAMESPACE}" --timeout=180
 PORTAL_HOST="$(oc get route maas-guided-journey -n "${NAMESPACE}" -o jsonpath='{.spec.host}')"
 echo "Portal is ready: https://${PORTAL_HOST}"
 echo "Dashboard link: ${DASHBOARD_URL}"
+if [[ -n "${AGENT_DEMO_URL}" ]]; then
+    echo "Guardrailed agent demo: ${AGENT_DEMO_URL}"
+else
+    echo "Guardrailed agent route was not found; its portal link will remain disabled."
+fi
