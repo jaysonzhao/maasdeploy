@@ -134,6 +134,72 @@ oc get maasmodelref -n llm
 oc get maassubscription -n models-as-a-service
 ```
 
+## Add a vLLM deployment that shares a time-sliced GPU
+
+Use this workflow on RHOAI 3.5 when adding a basic vLLM deployment to MaaS alongside an existing model. Give the new deployment a unique name; leave the existing `LLMInferenceService` and its replicas unchanged. The validated example below runs two replicas of `RedHatAI/Qwen2.5-7B-Instruct` on one NVIDIA L40S, with each replica requesting one logical GPU share.
+
+NVIDIA GPU Operator time slicing schedules multiple pods against one physical GPU. It does not partition GPU memory or provide memory/fault isolation between the replicas, so competing workloads can reduce throughput or cause out-of-memory failures. Configure and verify time slicing through the installed GPU Operator before deploying the model. Follow the [NVIDIA GPU Operator time-slicing guide](https://docs.nvidia.com/datacenter/cloud-native/openshift/latest/time-slicing-gpus-in-openshift.html) for the installed Operator version.
+
+### Preconditions
+
+1. Confirm the target cluster before changing dashboard or model resources: `oc whoami --show-server` and `oc whoami`.
+2. Confirm RHOAI 3.5 and MaaS are Ready, and identify the target GPU node and its device-plugin configuration:
+
+   ```bash
+   oc get nodes -l nvidia.com/gpu.present=true -L nvidia.com/gpu.product,nvidia.com/gpu.replicas
+   oc describe node <gpu-node> | grep -E 'nvidia.com/gpu'
+   ```
+
+   The selected node must advertise at least two schedulable GPU shares for a two-replica example. If the GPU Operator config uses `renameByDefault: true`, use the resulting shared resource name in the hardware profile; otherwise, the resource is typically `nvidia.com/gpu`.
+3. In OpenShift AI **Settings → Hardware profiles**, select or create a profile that targets the intended GPU nodes and requests one logical GPU share per pod. Confirm project quota allows two replicas. A hardware profile sets scheduling/resource requests; it does not create GPU time slicing.
+4. Keep each vLLM pod's host-memory request/limit and GPU cache settings within the capacity tested for the model and runtime. Time slicing does not reserve a fraction of GPU memory for each pod.
+
+### Enable vLLM on MaaS
+
+In RHOAI 3.5, dashboard-created vLLM-on-MaaS deployments are a Technology Preview feature. Enable the feature flag only on clusters where that preview is appropriate. Check the current value, then merge the flag without replacing other dashboard settings:
+
+```bash
+oc get odhdashboardconfig odh-dashboard-config -n redhat-ods-applications \
+  -o jsonpath='{.spec.dashboardConfig.vLLMDeploymentOnMaaS}{"\n"}'
+
+oc patch odhdashboardconfig odh-dashboard-config -n redhat-ods-applications \
+  --type=merge \
+  -p '{"spec":{"dashboardConfig":{"vLLMDeploymentOnMaaS":true}}}'
+```
+
+Wait for the dashboard configuration to reconcile, then reload the OpenShift AI dashboard. See [RHOAI 3.5 dashboard configuration](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/managing_resources/customizing-the-dashboard) and [model-serving configuration](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/configuring_your_model-serving_platform/configuring-model-servers_rhoai-admin).
+
+### Deploy the additional model
+
+In the OpenShift AI dashboard, choose the model catalog entry or approved model artifact and deploy it in the intended project. In the wizard:
+
+1. Choose the **vLLM on MaaS** / basic vLLM deployment path and an enabled single-node `LLMInferenceServiceConfig`. Do not choose **Distributed inference with llm-d** for this configuration. If the single-node config is unavailable, check the enabled LLM accelerator configurations under **Settings → Model resources and operations**.
+2. Select the shared-GPU hardware profile. Set replicas to `2`; each replica should request one logical GPU share. Review the generated YAML and make sure the new resource name is unique so the existing deployment is not edited or replaced.
+3. Enable MaaS publication. After deployment, confirm the generated `MaaSModelRef` points to the new `LLMInferenceService`.
+4. Add the new model reference only to the intended `MaaSSubscription` and matching `MaaSAuthPolicy`. For example, if this model is meant for the premium audience, update that subscription and policy; do not grant access through a free subscription unless requested. Both resources must include the model reference: the subscription sets the token quota and the authorization policy grants gateway access. Inspect the installed CRD schema and preserve existing entries when editing either resource.
+
+The validated Qwen 2.5 7B example used the model artifact `oci://registry.redhat.io/rhelai1/modelcar-qwen2-5-7b-instruct:1.5`, two replicas, one GPU share per replica, 2 CPU cores, 4 GiB memory request, and 36 GiB memory limit per pod. With vLLM runtime `0.24.0+rhaiv.13`, these additional arguments were used to bound the cache and context size:
+
+```text
+--gpu-memory-utilization=0.84 --max-model-len=32768 --kv-cache-memory-bytes=2684354560
+```
+
+Treat these as a tested example for that model/runtime combination, not universal settings. Re-check available GPU memory, runtime support for `--kv-cache-memory-bytes`, model context requirements, and the other workloads on the physical card before reusing them.
+
+### Verify deployment and access
+
+```bash
+oc get llminferenceservice -n <model-namespace>
+oc get pods -n <model-namespace> -o wide
+oc get maasmodelref -n <model-namespace>
+oc get maassubscription -n models-as-a-service
+oc get maasauthpolicy -n models-as-a-service
+```
+
+Confirm the new `LLMInferenceService` is Ready, both new pods are Ready and scheduled to the intended shared-GPU node, and the original deployment remains Ready with its original replica count. Confirm the new `MaaSModelRef` is Ready and included in the intended subscription and authorization policy. The OpenShift AI dashboard's **Gen AI studio → AI asset endpoints** page should list the model as Ready and show the MaaS endpoint. A successful pod deployment by itself does not prove that subscription quota and authorization are configured correctly.
+
+For the RHOAI 3.5 publication, subscription, and authorization workflow, see [Govern LLM access with MaaS](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/index).
+
 ## MaaS usage dashboard and telemetry
 
 The OpenShift AI Observability Dashboard needs the monitoring stack and the dashboard feature flag. Phase 7 configures DSCI monitoring, enables `OdhDashboardConfig.spec.dashboardConfig.observabilityDashboard`, turns on default tenant usage telemetry, and waits for operator-created gateway telemetry (using repository telemetry manifests as a fallback). Phase 4 also applies the dashboard configuration so a phase resume does not silently omit its UI flag.
