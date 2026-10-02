@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7fb">
+    <title>Qwen serving signals</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Qwen serving signals home">
+          <span class="brand-mark" aria-hidden="true">Q</span>
+          <span>Serving signals</span>
+        </a>
+        <div class="live-state" id="live-state" data-state="loading">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span id="live-label">Connecting</span>
+          <span class="separator">·</span>
+          <span>30 sec refresh</span>
+        </div>
+      </header>
+
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">OPENSHIFT AI / MODELS-AS-A-SERVICE</p>
+          <h1 id="page-title">Qwen serving comparison</h1>
+          <p class="lede">Compare first-token latency and KV prefix-cache reuse across the two Qwen 2.5 7B serving paths.</p>
+        </div>
+        <div class="window-chip"><span class="window-icon" aria-hidden="true">◷</span><span>5 minute metric window</span></div>
+      </section>
+
+      <section class="model-grid" aria-label="Current model metrics">
+        <article class="model-card" data-model="vllm">
+          <div class="model-head">
+            <div class="engine-icon vllm-icon" aria-hidden="true">V</div>
+            <div class="engine-copy"><p class="engine-name">vLLM</p><p class="engine-detail">Single serving path</p></div>
+            <span class="engine-tag">DIRECT</span>
+          </div>
+          <p class="model-id">RedHatAI / Qwen2.5-7B-Instruct</p>
+          <div class="pod-table-wrap">
+            <table class="pod-table"><thead><tr><th>Replica pod</th><th>TTFT P99</th><th>KV hit rate</th></tr></thead><tbody id="pods-vllm"><tr><td colspan="3" class="empty-row">Waiting for metrics…</td></tr></tbody></table>
+          </div>
+        </article>
+
+        <article class="model-card" data-model="llmd">
+          <div class="model-head">
+            <div class="engine-icon llmd-icon" aria-hidden="true">D</div>
+            <div class="engine-copy"><p class="engine-name">llm-d</p><p class="engine-detail">Distributed inference path</p></div>
+            <span class="engine-tag distributed-tag">DISTRIBUTED</span>
+          </div>
+          <p class="model-id">RedHatAI / Qwen2.5-7B-Instruct</p>
+          <div class="pod-table-wrap">
+            <table class="pod-table"><thead><tr><th>Replica pod</th><th>TTFT P99</th><th>KV hit rate</th></tr></thead><tbody id="pods-llmd"><tr><td colspan="3" class="empty-row">Waiting for metrics…</td></tr></tbody></table>
+          </div>
+        </article>
+      </section>
+
+      <div class="notice" id="notice" role="status" hidden></div>
+
+      <section class="chart-grid" aria-label="Metric trends since this page was opened">
+        <article class="chart-card">
+          <div class="chart-heading">
+            <div><p class="eyebrow">LATENCY</p><h2>Time to first token</h2></div>
+            <span class="chart-unit">milliseconds</span>
+          </div>
+          <div class="legend" id="ttft-legend" aria-label="Latency chart legend"></div>
+          <div class="chart-wrap"><canvas id="ttft-chart" aria-label="Per-pod TTFT P99 trend for vLLM and llm-d"></canvas><p class="chart-empty" id="ttft-empty">Waiting for the first sample…</p></div>
+          <p class="chart-foot">Each point is the latest 5 minute P99 · trend starts when this page opens</p>
+        </article>
+        <article class="chart-card">
+          <div class="chart-heading">
+            <div><p class="eyebrow">PREFIX REUSE</p><h2>KV cache hit rate</h2></div>
+            <span class="chart-unit">percent</span>
+          </div>
+          <div class="legend" id="cache-legend" aria-label="Cache chart legend"></div>
+          <div class="chart-wrap"><canvas id="cache-chart" aria-label="Per-pod KV prefix-cache hit rate trend for vLLM and llm-d"></canvas><p class="chart-empty" id="cache-empty">Waiting for the first sample…</p></div>
+          <p class="chart-foot">Prefix-cache hits ÷ prefix-cache queries · trend starts when this page opens</p>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <span>Per-pod vLLM prefix-cache counters and TTFT histograms · five minute rate window.</span>
+        <span id="updated-at">Last updated —</span>
+      </footer>
+    </main>
+  </body>
+</html>

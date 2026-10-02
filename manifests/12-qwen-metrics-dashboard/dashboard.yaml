@@ -1,0 +1,226 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: qwen-metrics-dashboard
+  namespace: qwen-metrics-dashboard
+  annotations:
+    serviceaccounts.openshift.io/oauth-redirectreference.qwen-metrics-dashboard: '{"kind":"OAuthRedirectReference","apiVersion":"v1","reference":{"kind":"Route","name":"qwen-metrics-dashboard"}}'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: qwen-metrics-dashboard-auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: qwen-metrics-dashboard
+    namespace: qwen-metrics-dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: qwen-metrics-dashboard-monitoring-view
+  namespace: llm
+subjects:
+  - kind: ServiceAccount
+    name: qwen-metrics-dashboard
+    namespace: qwen-metrics-dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: qwen-metrics-dashboard-service-access
+  namespace: qwen-metrics-dashboard
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    resourceNames: ["qwen-metrics-dashboard"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: qwen-metrics-dashboard-service-access
+  namespace: qwen-metrics-dashboard
+subjects:
+  - kind: Group
+    name: system:authenticated
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: qwen-metrics-dashboard-service-access
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qwen-metrics-dashboard-service-ca
+  namespace: qwen-metrics-dashboard
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen-metrics-dashboard
+  namespace: qwen-metrics-dashboard
+  labels:
+    app.kubernetes.io/name: qwen-metrics-dashboard
+    app.kubernetes.io/part-of: qwen-metrics-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qwen-metrics-dashboard
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: qwen-metrics-dashboard
+        app.kubernetes.io/part-of: qwen-metrics-dashboard
+    spec:
+      serviceAccountName: qwen-metrics-dashboard
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/python-312:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "/opt/qwen-metrics/server.py"]
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: THANOS_QUERY_URL
+              value: "https://thanos-querier.openshift-monitoring.svc:9092"
+            - name: THANOS_CA_FILE
+              value: "/etc/pki/openshift/service-ca.crt"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: source
+              mountPath: /opt/qwen-metrics
+              readOnly: true
+            - name: prometheus-ca
+              mountPath: /etc/pki/openshift
+              readOnly: true
+        - name: oauth-proxy
+          image: registry.redhat.io/openshift4/ose-oauth-proxy@sha256:6bcfa981a7a75c242a16afa6dab36bf6e3b8a1442fa863875919ad551f48eceb
+          imagePullPolicy: IfNotPresent
+          args:
+            - --provider=openshift
+            - --https-address=:8443
+            - --http-address=
+            - --email-domain=*
+            - --openshift-service-account=qwen-metrics-dashboard
+            - --upstream=http://localhost:8080
+            - --tls-cert=/etc/tls/private/tls.crt
+            - --tls-key=/etc/tls/private/tls.key
+            - --cookie-secret-file=/etc/proxy/secrets/session_secret
+            - --cookie-secure=true
+            - --cookie-name=_qwen_metrics_session
+            - --pass-access-token=false
+            - --pass-user-headers=true
+            - --skip-auth-regex=^/healthz$
+            - --openshift-sar={"namespace":"qwen-metrics-dashboard","resource":"services","verb":"get","resourceName":"qwen-metrics-dashboard"}
+          ports:
+            - name: oauth
+              containerPort: 8443
+          readinessProbe:
+            httpGet:
+              path: /oauth/healthz
+              port: oauth
+              scheme: HTTPS
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: serving-cert
+              mountPath: /etc/tls/private
+              readOnly: true
+            - name: cookie-secret
+              mountPath: /etc/proxy/secrets
+              readOnly: true
+      volumes:
+        - name: source
+          configMap:
+            name: qwen-metrics-dashboard-source
+            defaultMode: 0444
+        - name: prometheus-ca
+          configMap:
+            name: qwen-metrics-dashboard-service-ca
+            items:
+              - key: service-ca.crt
+                path: service-ca.crt
+        - name: serving-cert
+          secret:
+            secretName: qwen-metrics-dashboard-tls
+        - name: cookie-secret
+          secret:
+            secretName: qwen-metrics-dashboard-cookie
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen-metrics-dashboard
+  namespace: qwen-metrics-dashboard
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: qwen-metrics-dashboard-tls
+spec:
+  selector:
+    app.kubernetes.io/name: qwen-metrics-dashboard
+  ports:
+    - name: https
+      port: 443
+      targetPort: oauth
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: qwen-metrics-dashboard
+  namespace: qwen-metrics-dashboard
+spec:
+  to:
+    kind: Service
+    name: qwen-metrics-dashboard
+  port:
+    targetPort: https
+  tls:
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect

@@ -19,6 +19,10 @@ Requires OpenShift 4.19+ with cluster-admin access.
 
 **Guided MaaS portal:** [`portal/`](portal/) walks through model discovery, deployment, governance, keys, load generation, and monitoring. Deploy it behind OpenShift OAuth with `./scripts/deploy-maas-portal.sh`; see [the portal runbook](content/modules/ROOT/pages/11-maas-portal.adoc).
 
+**Qwen serving metrics app:** [`apps/qwen-metrics/`](apps/qwen-metrics/) compares per-pod TTFT P99 and KV prefix-cache hit rate for the vLLM and llm-d Qwen deployments, with a 30-second refresh. Deploy it behind OpenShift OAuth with `./scripts/deploy-qwen-metrics-dashboard.sh`.
+
+**Qwen serving metrics skill:** [`.claude/skills/qwen-serving-metrics/SKILL.md`](.claude/skills/qwen-serving-metrics/SKILL.md) documents the per-pod Prometheus queries, OAuth and RBAC model, deployment, and live verification workflow.
+
 ## Phases
 
 Each phase has step-by-step instructions, status gates, and troubleshooting.

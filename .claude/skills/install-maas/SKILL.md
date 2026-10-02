@@ -25,6 +25,7 @@ Run commands from the repository root. `scripts/setup-maas.sh` is the end-to-end
 | Phase 9: MLflow experiment tracking | `manifests/10-mlflow/mlflow.yaml`, `10-mlflow.adoc` |
 | 20-minute free/premium load demo | `scripts/run-maas-loadtest.sh`, `scripts/cleanup-maas-loadtest.sh`, `manifests/09-load-test/`, `09-load-test.adoc` |
 | Guided MaaS access portal | `portal/`, `scripts/deploy-maas-portal.sh`, `manifests/11-maas-portal/`, `11-maas-portal.adoc` |
+| Per-pod Qwen serving metrics | `apps/qwen-metrics/`, `scripts/deploy-qwen-metrics-dashboard.sh`, `manifests/12-qwen-metrics-dashboard/`; see `.claude/skills/qwen-serving-metrics/SKILL.md` |
 
 ## Safety and cluster selection
 
