@@ -93,6 +93,8 @@ With MLflow experiment tracking:
 | `granite-tiny-gpu` | Yes | < 40 GiB | Small GPU (T4, L4, A10) |
 | `gpt-oss-20b` | Yes | >= 40 GiB | Large GPU (L40S, A100, H100) |
 
+The cluster-specific Nemotron Safety Guard vLLM deployment is maintained separately from the MaaS model catalog. See [its deployment notes](manifests/05-maas-models/README.md) and run `./scripts/deploy-nemotron-safety-guard-vllm.sh` to reconcile it on the shared L40S cluster.
+
 ## Documentation
 
 - [RHOAI 3.4 MaaS Official Docs](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/govern_llm_access_with_models-as-a-service/deploy-and-manage-models-as-a-service_maas)

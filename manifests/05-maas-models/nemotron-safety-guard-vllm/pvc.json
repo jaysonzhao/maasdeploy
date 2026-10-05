@@ -1,0 +1,23 @@
+{
+  "apiVersion": "v1",
+  "kind": "PersistentVolumeClaim",
+  "metadata": {
+    "name": "nemotron-safety-guard-model-cache",
+    "namespace": "llm",
+    "labels": {
+      "app.kubernetes.io/name": "nemotron-safety-guard-vllm"
+    }
+  },
+  "spec": {
+    "accessModes": [
+      "ReadWriteOnce"
+    ],
+    "resources": {
+      "requests": {
+        "storage": "30Gi"
+      }
+    },
+    "storageClassName": "gp3-csi",
+    "volumeMode": "Filesystem"
+  }
+}

@@ -201,6 +201,20 @@ Confirm the new `LLMInferenceService` is Ready, both new pods are Ready and sche
 
 For the RHOAI 3.5 publication, subscription, and authorization workflow, see [Govern LLM access with MaaS](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/index).
 
+### Deploy Nemotron Safety Guard alongside Qwen on a shared L40S
+
+The repository also contains a direct vLLM Deployment for `nvidia/Llama-3.1-Nemotron-Safety-Guard-8B-v3` in project `llm`. It is separate from the dashboard-created Qwen `LLMInferenceService` workflow above and is not registered with MaaS by default.
+
+Reconcile it with:
+
+```bash
+./scripts/deploy-nemotron-safety-guard-vllm.sh
+```
+
+The manifest in `manifests/05-maas-models/nemotron-safety-guard-vllm/` preserves the pinned model revision, 30 GiB cache PVC, and the live serving settings. It requests one logical `nvidia.com/gpu` share; the pod selector targets nodes labeled `nvidia.com/device-plugin.config=NVIDIA-L40S` and `nvidia.com/gpu.present=true`. Required pod affinity places it on a node with a Ready Qwen vLLM pod (`app.kubernetes.io/name=redhataiqwen25-7b-instruct-vll`). The script checks for a configured shared L40S node, waits for Qwen readiness, applies the manifests, and waits up to ten minutes for Nemotron readiness.
+
+The vLLM argument `--gpu-memory-utilization=0.48` bounds its planned memory use but is not an isolated share. NVIDIA time slicing does not partition VRAM. The live cluster inspection on 2026-10-05 showed about 4.9 GiB free on the L40S after Nemotron and Qwen initialized, so inspect actual GPU use before adding workloads or restarting either model. Verify placement with `oc get pods -n llm -o wide` and confirm the model ID `nvidia/Llama-3.1-Nemotron-Safety-Guard-8B-v3` through the pod's vLLM API. The directory intentionally creates no Service, Route, `MaaSModelRef`, or subscription.
+
 ## MaaS usage dashboard and telemetry
 
 The OpenShift AI Observability Dashboard needs the monitoring stack and the dashboard feature flag. Phase 7 configures DSCI monitoring, enables `OdhDashboardConfig.spec.dashboardConfig.observabilityDashboard`, turns on default tenant usage telemetry, and waits for operator-created gateway telemetry (using repository telemetry manifests as a fallback). Phase 4 also applies the dashboard configuration so a phase resume does not silently omit its UI flag.
