@@ -11,7 +11,7 @@
 #   ./scripts/deploy-model.sh [OPTIONS]
 #
 # Options:
-#   --model <name>  Model to deploy: simulator, granite-tiny-gpu, gpt-oss-20b, auto (default: auto)
+#   --model <name>  Model to deploy: simulator, granite-tiny-gpu, gpt-oss-20b, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
 #   --dry-run       Preview without applying
 #   -h, --help      Show this help message
 #
@@ -53,9 +53,15 @@ Options:
                     simulator       CPU-only mock model (~256Mi RAM)
                     granite-tiny-gpu  Granite 4.0-h-tiny FP8 (1 GPU, 24Gi RAM)
                     gpt-oss-20b     OpenAI gpt-oss-20b (1 GPU, 60Gi RAM)
+                    qwen-llmd       Qwen 2.5 7B using the llm-d serving path
+                    qwen-vllm       Qwen 2.5 7B using single-node vLLM
+                    qwen-pair       Deploy both Qwen serving configurations
                     auto            Auto-detect based on GPU VRAM (default)
   --dry-run       Preview without applying
   -h, --help      Show this help message
+
+The qwen-llmd and qwen-vllm choices add one serving path; qwen-pair applies both.
+These explicit Qwen choices are applied even if another model exists in namespace llm.
 
 Auto-detection rules:
   - No GPU node             -> simulator
@@ -111,14 +117,31 @@ if [ "$MODEL" = "auto" ]; then
 fi
 
 # Validate selected model
-VALID_MODELS="simulator granite-tiny-gpu gpt-oss-20b"
+VALID_MODELS="simulator granite-tiny-gpu gpt-oss-20b qwen-llmd qwen-vllm qwen-pair"
 if ! echo "$VALID_MODELS" | grep -qw "$MODEL"; then
     log_error "Unknown model: $MODEL"
     log_error "Valid models: $VALID_MODELS"
     exit 1
 fi
 
-MODEL_DIR="$MODELS_DIR/$MODEL"
+MODEL_SERVICE_NAMES=()
+case "$MODEL" in
+    qwen-llmd)
+        MODEL_DIR="$MODELS_DIR/qwen25-7b-instruct/llm-d"
+        MODEL_SERVICE_NAMES=(redhataiqwen25-7b-instruct)
+        ;;
+    qwen-vllm)
+        MODEL_DIR="$MODELS_DIR/qwen25-7b-instruct/vllm"
+        MODEL_SERVICE_NAMES=(redhataiqwen25-7b-instruct-vll)
+        ;;
+    qwen-pair)
+        MODEL_DIR="$MODELS_DIR/qwen25-7b-instruct"
+        MODEL_SERVICE_NAMES=(redhataiqwen25-7b-instruct redhataiqwen25-7b-instruct-vll)
+        ;;
+    *)
+        MODEL_DIR="$MODELS_DIR/$MODEL"
+        ;;
+esac
 if [ ! -d "$MODEL_DIR" ]; then
     log_error "Model directory not found: $MODEL_DIR"
     exit 1
@@ -144,7 +167,7 @@ log_info "llm namespace ready with required labels"
 # =============================================================================
 log_step "Deploying model: $MODEL"
 
-log_info "Applying manifests from manifests/05-maas-models/$MODEL/..."
+log_info "Applying manifests from $MODEL_DIR/..."
 run_cmd oc apply -k "$MODEL_DIR/"
 log_info "Model manifests applied"
 
@@ -154,7 +177,7 @@ if [ "$DRY_RUN" = true ]; then
     log_info "Model Deployment Summary (DRY RUN)"
     log_info "========================================="
     log_info "Model:     $MODEL"
-    log_info "Directory: manifests/05-maas-models/$MODEL/"
+    log_info "Directory: $MODEL_DIR/"
     log_info "========================================="
     exit 0
 fi
@@ -163,7 +186,49 @@ fi
 # Wait for model readiness
 # =============================================================================
 log_step "Waiting for model readiness"
+PODS_READY=false
+PHASE=""
 
+if [ "${#MODEL_SERVICE_NAMES[@]}" -gt 0 ]; then
+    log_info "Waiting for selected Qwen LLMInferenceService and MaaSModelRef resources to become Ready..."
+    TIMEOUT=600
+    ELAPSED=0
+    QWEN_RESOURCES_READY=false
+    while [ "$ELAPSED" -lt "$TIMEOUT" ]; do
+        QWEN_RESOURCES_READY=true
+        for model_name in "${MODEL_SERVICE_NAMES[@]}"; do
+            SERVICE_READY=$(oc get llminferenceservice "$model_name" -n llm \
+                -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+            MODELREF_READY=$(oc get maasmodelref "$model_name" -n llm \
+                -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+            if [ "$SERVICE_READY" != "True" ] || [ "$MODELREF_READY" != "True" ]; then
+                QWEN_RESOURCES_READY=false
+            fi
+        done
+        if [ "$QWEN_RESOURCES_READY" = true ]; then
+            log_info "All selected Qwen services and MaaSModelRefs are Ready"
+            break
+        fi
+        sleep 10
+        ELAPSED=$((ELAPSED + 10))
+        if [ $((ELAPSED % 60)) -eq 0 ]; then
+            log_info "Still waiting for selected Qwen resources... (${ELAPSED}s elapsed)"
+        fi
+    done
+    if [ "$QWEN_RESOURCES_READY" != true ]; then
+        log_warn "Selected Qwen resources did not all become Ready within ${TIMEOUT}s"
+        for model_name in "${MODEL_SERVICE_NAMES[@]}"; do
+            oc get llminferenceservice "$model_name" -n llm 2>/dev/null || true
+            oc get maasmodelref "$model_name" -n llm 2>/dev/null || true
+        done
+    fi
+    PODS_READY="$QWEN_RESOURCES_READY"
+    if [ "$QWEN_RESOURCES_READY" = true ]; then
+        PHASE="Ready"
+    else
+        PHASE="NotReady"
+    fi
+else
 # Wait for LLMInferenceService pods
 log_info "Waiting for LLMInferenceService pods to be Running..."
 TIMEOUT=600
@@ -216,12 +281,13 @@ done
 if [ "$MODEL_READY" = false ]; then
     log_warn "MaaSModelRef did not reach Ready phase within ${TIMEOUT}s (current: ${PHASE:-unknown})"
 fi
+fi
 
 log_info "========================================="
 log_info "Model Deployment Summary"
 log_info "========================================="
 log_info "Model:          $MODEL"
-log_info "Pods Ready:     $PODS_READY"
+log_info "Workloads Ready: $PODS_READY"
 log_info "MaaSModelRef:   ${PHASE:-unknown}"
 log_info "========================================="
 log_info "Next steps:"

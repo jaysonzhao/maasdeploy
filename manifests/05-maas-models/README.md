@@ -16,6 +16,18 @@ Deploy or reconcile it with:
 
 The target cluster must already have L40S time slicing configured and the matching Qwen vLLM pods Ready. `--gpu-memory-utilization=0.48` is a vLLM allocation target, not a GPU memory reservation. NVIDIA time slicing does not isolate VRAM; inspect current GPU memory use before adding or restarting workloads. This standalone Deployment does not create a Service, Route, `MaaSModelRef`, or MaaS subscription.
 
-## llm-d-backed Qwen 2.5 7B Instruct
+## Qwen 2.5 7B Instruct: llm-d and single-node vLLM
 
-The [`qwen25-7b-instruct-llmd/`](qwen25-7b-instruct-llmd/) Kustomize folder consolidates the observed two-replica `RedHatAI/Qwen2.5-7B-Instruct` `LLMInferenceService` and MaaS model reference for the llm-d router/scheduler path. It is a separate serving configuration from the single-node vLLM deployment. Review the folder README for the L40S time-slicing, hardware-profile, model-connection Secret, Gateway, and RHOAI preset prerequisites before applying it.
+The [`qwen25-7b-instruct/`](qwen25-7b-instruct/) folder keeps both two-replica `RedHatAI/Qwen2.5-7B-Instruct` deployments and their MaaS model references together. It includes the llm-d router/scheduler configuration and the single-node vLLM configuration, including its `LLMInferenceServiceConfig`.
+
+Use the end-to-end setup script to deploy one path or both:
+
+```bash
+./scripts/setup-maas.sh --from-phase 5 --model qwen-llmd --skip-verify
+./scripts/setup-maas.sh --from-phase 5 --model qwen-vllm --skip-verify
+./scripts/setup-maas.sh --from-phase 5 --model qwen-pair --skip-verify
+```
+
+The Qwen choices are applied even when another `LLMInferenceService` already exists in `llm`. `qwen-pair` applies both configurations together. For a direct Kustomize apply, use `oc apply -k manifests/05-maas-models/qwen25-7b-instruct/`; use the `llm-d/` or `vllm/` subfolder to apply one path.
+
+Review the folder README for cluster prerequisites, Secret references, and the captured resource settings. NVIDIA time slicing allocates logical GPU shares; it does not partition or reserve VRAM. The bundle contains desired-state CRs, not controller-generated Deployments, Services, InferencePools, or HTTPRoutes. MaaS authorization policies and subscriptions remain separate governance resources.

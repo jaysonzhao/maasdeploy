@@ -20,7 +20,7 @@
 #   ./scripts/setup-maas.sh [OPTIONS]
 #
 # Options:
-#   --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, auto (default: auto)
+#   --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
 #   --from-phase <N>     Start from phase N (default: 0)
 #   --skip-models        Skip Phase 5 (model deployment)
 #   --skip-verify        Skip Phase 6 (verification)
@@ -86,7 +86,7 @@ installation through model deployment and verification. Each phase is
 idempotent  - re-running skips what's already done.
 
 Options:
-  --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, auto (default: auto)
+  --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
   --from-phase <N>     Start from phase N (0-9, default: 0)
   --skip-models        Skip Phase 5 (model deployment)
   --skip-verify        Skip Phase 6 (verification)
@@ -97,6 +97,11 @@ Options:
   --external-model-api-key <key>  API key for external provider (or set EXTERNAL_MODEL_API_KEY)
   --dry-run            Preview without applying
   -h, --help           Show this help message
+
+Qwen model selections:
+  qwen-llmd            Apply only the llm-d Qwen deployment
+  qwen-vllm            Apply only the single-node vLLM Qwen deployment
+  qwen-pair            Apply both Qwen deployments, even if another model exists
 
 Phases:
   0  Preflight          Detect cluster state, decide which phases to run
@@ -708,10 +713,10 @@ fi
 if should_run 5 && [ "$SKIP_MODELS" = false ]; then
     log_phase 5 "Deploy Model"
 
-    if [ "$HAS_MODELS" = true ]; then
+    if [ "$HAS_MODELS" = true ] && [[ "$MODEL" != "qwen-llmd" && "$MODEL" != "qwen-vllm" && "$MODEL" != "qwen-pair" ]]; then
         log_info "Models already deployed in llm namespace:"
         oc get llminferenceservice -n llm --no-headers 2>/dev/null || true
-        log_info "Skipping model deployment (use --from-phase 5 to force)"
+        log_info "Skipping the default model because a model already exists; use an explicit qwen-* selection to add the Qwen deployment(s)"
     else
         # Auto-detect model
         if [ "$MODEL" = "auto" ]; then
@@ -730,13 +735,30 @@ if should_run 5 && [ "$SKIP_MODELS" = false ]; then
             fi
         fi
 
-        VALID_MODELS="simulator granite-tiny-gpu gpt-oss-20b"
+        VALID_MODELS="simulator granite-tiny-gpu gpt-oss-20b qwen-llmd qwen-vllm qwen-pair"
         if ! echo "$VALID_MODELS" | grep -qw "$MODEL"; then
             log_error "Unknown model: $MODEL (valid: $VALID_MODELS)"
             exit 1
         fi
 
-        MODEL_DIR="$MANIFESTS_DIR/05-maas-models/$MODEL"
+        MODEL_SERVICE_NAMES=()
+        case "$MODEL" in
+            qwen-llmd)
+                MODEL_DIR="$MANIFESTS_DIR/05-maas-models/qwen25-7b-instruct/llm-d"
+                MODEL_SERVICE_NAMES=(redhataiqwen25-7b-instruct)
+                ;;
+            qwen-vllm)
+                MODEL_DIR="$MANIFESTS_DIR/05-maas-models/qwen25-7b-instruct/vllm"
+                MODEL_SERVICE_NAMES=(redhataiqwen25-7b-instruct-vll)
+                ;;
+            qwen-pair)
+                MODEL_DIR="$MANIFESTS_DIR/05-maas-models/qwen25-7b-instruct"
+                MODEL_SERVICE_NAMES=(redhataiqwen25-7b-instruct redhataiqwen25-7b-instruct-vll)
+                ;;
+            *)
+                MODEL_DIR="$MANIFESTS_DIR/05-maas-models/$MODEL"
+                ;;
+        esac
         if [ ! -d "$MODEL_DIR" ]; then
             log_error "Model directory not found: $MODEL_DIR"
             exit 1
@@ -753,6 +775,38 @@ if should_run 5 && [ "$SKIP_MODELS" = false ]; then
         log_info "Model manifests applied"
 
         if [ "$DRY_RUN" = false ]; then
+            if [ "${#MODEL_SERVICE_NAMES[@]}" -gt 0 ]; then
+                log_info "Waiting for requested Qwen LLMInferenceService and MaaSModelRef resources (up to 10 minutes)..."
+                TIMEOUT=600
+                ELAPSED=0
+                QWEN_RESOURCES_READY=false
+                while [ "$ELAPSED" -lt "$TIMEOUT" ]; do
+                    QWEN_RESOURCES_READY=true
+                    for model_name in "${MODEL_SERVICE_NAMES[@]}"; do
+                        SERVICE_READY=$(oc get llminferenceservice "$model_name" -n llm \
+                            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+                        MODELREF_READY=$(oc get maasmodelref "$model_name" -n llm \
+                            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+                        if [ "$SERVICE_READY" != "True" ] || [ "$MODELREF_READY" != "True" ]; then
+                            QWEN_RESOURCES_READY=false
+                        fi
+                    done
+                    if [ "$QWEN_RESOURCES_READY" = true ]; then
+                        log_info "All selected Qwen services and MaaSModelRefs are Ready"
+                        break
+                    fi
+                    sleep 10
+                    ELAPSED=$((ELAPSED + 10))
+                    [ $((ELAPSED % 60)) -eq 0 ] && log_info "  Still waiting for selected Qwen resources... (${ELAPSED}s)"
+                done
+                if [ "$QWEN_RESOURCES_READY" != true ]; then
+                    log_warn "Selected Qwen resources did not all become Ready within ${TIMEOUT}s"
+                    for model_name in "${MODEL_SERVICE_NAMES[@]}"; do
+                        oc get llminferenceservice "$model_name" -n llm 2>/dev/null || true
+                        oc get maasmodelref "$model_name" -n llm 2>/dev/null || true
+                    done
+                fi
+            else
             # Wait for pods
             log_info "Waiting for model pods (up to 10 minutes for GPU models)..."
             TIMEOUT=600
@@ -800,6 +854,7 @@ if should_run 5 && [ "$SKIP_MODELS" = false ]; then
                 log_info "MaaSModelRef: Ready"
             else
                 log_warn "MaaSModelRef not Ready after ${TIMEOUT}s (phase: ${PHASE:-unknown})"
+            fi
             fi
         fi
     fi

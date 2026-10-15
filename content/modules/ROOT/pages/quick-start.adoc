@@ -22,7 +22,7 @@ This runs Phases 0-6 automatically. The script detects what's already installed 
 | Option | Description | Default
 
 | `--model <name>`
-| Model to deploy: `simulator` (CPU), `granite-tiny-gpu` (small GPU), `gpt-oss-20b` (large GPU), `auto` (auto-detect by GPU VRAM)
+| Model to deploy: `simulator` (CPU), `granite-tiny-gpu` (small GPU), `gpt-oss-20b` (large GPU), `qwen-llmd`, `qwen-vllm`, `qwen-pair` (both Qwen serving paths), or `auto` (auto-detect by GPU VRAM)
 | `auto`
 
 | `--from-phase <N>`
@@ -146,6 +146,15 @@ If the platform is already installed and you just want to deploy a model:
 ./scripts/setup-maas.sh --from-phase 5
 ----
 
+To deploy one or both captured Qwen 2.5 7B configurations into an existing `llm` project, select `qwen-llmd`, `qwen-vllm`, or `qwen-pair`. These explicit selections apply even if the project already contains another model. Skip the standard simulator-based end-to-end verification when you only want the Qwen deployment:
+
+[source,bash]
+----
+./scripts/setup-maas.sh --from-phase 5 --model qwen-pair --skip-verify
+----
+
+The manifests and prerequisites are consolidated in `manifests/05-maas-models/qwen25-7b-instruct/`.
+
 Or use the standalone model script for more control:
 
 [source,bash]
@@ -176,7 +185,7 @@ These wrap individual phases for standalone use:
 | Script | What it does
 
 | `scripts/deploy-model.sh`
-| Phase 5 only - deploy a model with GPU auto-detection
+| Phase 5 only - deploy a selected model with GPU auto-detection or an explicit Qwen serving path
 
 | `scripts/test-inference.sh`
 | Send inference requests to a deployed model endpoint

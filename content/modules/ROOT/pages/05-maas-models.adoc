@@ -129,6 +129,21 @@ oc apply -k manifests/05-maas-models/granite-tiny-gpu/
 oc apply -k manifests/05-maas-models/gpt-oss-20b/
 ----
 
+=== Qwen 2.5 7B Instruct: llm-d and single-node vLLM
+
+The repository consolidates both two-replica Qwen deployments observed in project `llm` under `manifests/05-maas-models/qwen25-7b-instruct/`. The bundle contains the llm-d `LLMInferenceService`, the single-node vLLM `LLMInferenceService` and its referenced `LLMInferenceServiceConfig`, and a `MaaSModelRef` for each model. It does not include model-connection Secret data, controller-generated workloads/routes, or MaaS authorization policies and subscriptions.
+
+Use the setup script to deploy just one serving path or both into an existing cluster. An explicit Qwen choice is applied even when another model already exists in `llm`:
+
+[source,bash]
+----
+./scripts/setup-maas.sh --from-phase 5 --model qwen-llmd --skip-verify
+./scripts/setup-maas.sh --from-phase 5 --model qwen-vllm --skip-verify
+./scripts/setup-maas.sh --from-phase 5 --model qwen-pair --skip-verify
+----
+
+NVIDIA L40S time slicing lets the pods share logical GPU scheduling capacity; it does not partition VRAM. The captured model arguments and placement selectors are in the folder README. Confirm L40S memory headroom before running both deployments, since vLLM memory-utilization values do not reserve or isolate GPU memory.
+
 == Verifying Model Readiness
 
 After deploying, verify that the model is ready:

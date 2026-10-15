@@ -1,7 +1,7 @@
 ---
 name: install-maas
 description: Deploy, resume, verify, observe, or remove Red Hat OpenShift AI Models as a Service (MaaS) resources using this repository's scripts and manifests.
-argument-hint: "[--model simulator|granite-tiny-gpu|gpt-oss-20b|auto] [--from-phase N] [--with-observability] [--with-external-models] [--with-mlflow]"
+argument-hint: "[--model simulator|granite-tiny-gpu|gpt-oss-20b|qwen-llmd|qwen-vllm|qwen-pair|auto] [--from-phase N] [--with-observability] [--with-external-models] [--with-mlflow]"
 allowed-tools: Bash(oc *), Bash(./*), Bash(envsubst *), Bash(curl *), Bash(jq *), Bash(grep *), Bash(ls *), Bash(cat *), Bash(date *), Bash(mkdir *), Bash(echo *), Bash(bash *), AskUserQuestion
 ---
 
@@ -59,7 +59,12 @@ For GPU clusters, use `--model auto` (the default) or select a model explicitly:
 - `simulator`: CPU-only validation and demos.
 - `granite-tiny-gpu`: smaller GPU workload.
 - `gpt-oss-20b`: larger GPU workload.
+- `qwen-llmd`: two-replica `RedHatAI/Qwen2.5-7B-Instruct` with the llm-d router/scheduler configuration.
+- `qwen-vllm`: two-replica `RedHatAI/Qwen2.5-7B-Instruct` with single-node vLLM.
+- `qwen-pair`: both Qwen serving configurations; the manifests are grouped in `manifests/05-maas-models/qwen25-7b-instruct/`.
 - `auto`: select based on detected GPU capacity; falls back to the simulator if no GPU is found.
+
+Explicit `qwen-llmd`, `qwen-vllm`, and `qwen-pair` selections are applied even when another model already exists in namespace `llm`. For a model-only change on an installed cluster, use `./scripts/setup-maas.sh --from-phase 5 --model qwen-pair --skip-verify`; the regular Phase 6 verification runs a separate simulator-based MaaS check.
 
 The script phases are:
 

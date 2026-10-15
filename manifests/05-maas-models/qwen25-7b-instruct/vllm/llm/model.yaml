@@ -1,0 +1,45 @@
+# RedHatAI/Qwen2.5-7B-Instruct on the single-node vLLM serving path.
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: redhataiqwen25-7b-instruct-vll
+  annotations:
+    opendatahub.io/connections: secret-yi3ywx
+    opendatahub.io/hardware-profile-name: l40s-shared
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: generative
+    openshift.io/description: RedHatAI/Qwen2.5-7B-Instruct served with single-node vLLM and MaaS on time-sliced NVIDIA L40S.
+    openshift.io/display-name: redhataiqwen25-7b-instruct-vllm
+  labels:
+    opendatahub.io/dashboard: "true"
+spec:
+  baseRefs:
+    - name: redhataiqwen25-7b-instruct-vll
+  model:
+    name: redhataiqwen25-7b-instruct-vll
+    uri: oci://registry.redhat.io/rhelai1/modelcar-qwen2-5-7b-instruct:1.5
+  replicas: 2
+  router:
+    gateway:
+      refs:
+        - name: maas-default-gateway
+          namespace: openshift-ingress
+    route: {}
+  template:
+    containers:
+      - name: main
+        env:
+          - name: VLLM_ADDITIONAL_ARGS
+            value: --gpu-memory-utilization=0.45 --max-model-len=32768 --kv-cache-memory-bytes=2684354560
+        resources:
+          requests:
+            cpu: "2"
+            memory: 4Gi
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "2"
+            memory: 36Gi
+            nvidia.com/gpu: "1"
+    nodeSelector:
+      nvidia.com/device-plugin.config: NVIDIA-L40S
+      nvidia.com/gpu.present: "true"

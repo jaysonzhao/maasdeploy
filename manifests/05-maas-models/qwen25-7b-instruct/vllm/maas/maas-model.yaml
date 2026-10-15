@@ -1,0 +1,12 @@
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: redhataiqwen25-7b-instruct-vll
+  namespace: llm
+  annotations:
+    openshift.io/description: RedHatAI/Qwen2.5-7B-Instruct served with single-node vLLM and MaaS on time-sliced NVIDIA L40S.
+    openshift.io/display-name: redhataiqwen25-7b-instruct-vllm
+spec:
+  modelRef:
+    kind: LLMInferenceService
+    name: redhataiqwen25-7b-instruct-vll

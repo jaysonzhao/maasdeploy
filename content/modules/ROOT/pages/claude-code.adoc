@@ -38,6 +38,7 @@ All arguments from `setup-maas.sh` are supported:
 /install-maas --from-phase 4
 /install-maas --with-observability
 /install-maas --skip-models --skip-verify
+/install-maas --from-phase 5 --model qwen-pair --skip-verify
 ----
 
 [cols="2,4", options="header"]
@@ -45,7 +46,7 @@ All arguments from `setup-maas.sh` are supported:
 | Option | Description
 
 | `--model <name>`
-| Model to deploy: `simulator` (CPU), `granite-tiny-gpu`, `gpt-oss-20b`, `auto`
+| Model to deploy: `simulator` (CPU), `granite-tiny-gpu`, `gpt-oss-20b`, `qwen-llmd`, `qwen-vllm`, `qwen-pair` (both Qwen serving paths), `auto`
 
 | `--from-phase <N>`
 | Start from phase N (0-7)
