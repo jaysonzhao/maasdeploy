@@ -15,3 +15,7 @@ Deploy or reconcile it with:
 ```
 
 The target cluster must already have L40S time slicing configured and the matching Qwen vLLM pods Ready. `--gpu-memory-utilization=0.48` is a vLLM allocation target, not a GPU memory reservation. NVIDIA time slicing does not isolate VRAM; inspect current GPU memory use before adding or restarting workloads. This standalone Deployment does not create a Service, Route, `MaaSModelRef`, or MaaS subscription.
+
+## llm-d-backed Qwen 2.5 7B Instruct
+
+The [`qwen25-7b-instruct-llmd/`](qwen25-7b-instruct-llmd/) Kustomize folder consolidates the observed two-replica `RedHatAI/Qwen2.5-7B-Instruct` `LLMInferenceService` and MaaS model reference for the llm-d router/scheduler path. It is a separate serving configuration from the single-node vLLM deployment. Review the folder README for the L40S time-slicing, hardware-profile, model-connection Secret, Gateway, and RHOAI preset prerequisites before applying it.

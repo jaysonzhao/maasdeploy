@@ -1,0 +1,45 @@
+# RedHatAI/Qwen2.5-7B-Instruct on the RHOAI llm-d serving path.
+# The router scheduler and InferencePool are reconciled from this LLMInferenceService.
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: redhataiqwen25-7b-instruct
+  annotations:
+    opendatahub.io/connections: secret-yqrd37
+    opendatahub.io/hardware-profile-name: l40s-shared
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: generative
+    openshift.io/display-name: RedHatAI/Qwen2.5-7B-Instruct
+  labels:
+    opendatahub.io/dashboard: "true"
+spec:
+  model:
+    name: redhataiqwen25-7b-instruct
+    uri: oci://registry.redhat.io/rhelai1/modelcar-qwen2-5-7b-instruct:1.5
+  replicas: 2
+  router:
+    gateway:
+      refs:
+        - name: maas-default-gateway
+          namespace: openshift-ingress
+    route: {}
+    scheduler: {}
+  template:
+    containers:
+      - name: main
+        env:
+          - name: VLLM_ADDITIONAL_ARGS
+            value: --gpu-memory-utilization=0.84 --max-model-len=32768 --kv-cache-memory-bytes=2684354560
+        resources:
+          requests:
+            cpu: "2"
+            memory: 4Gi
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "2"
+            memory: 36Gi
+            nvidia.com/gpu: "1"
+    nodeSelector:
+      maas.opendatahub.io/qwen-pair: "true"
+      nvidia.com/device-plugin.config: NVIDIA-L40S
+      nvidia.com/gpu.present: "true"
