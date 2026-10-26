@@ -5,6 +5,14 @@ metadata:
   namespace: openshift-operators
 spec:
   channel: stable
+  config:
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
   installPlanApproval: Manual
   name: rhcl-operator
   source: redhat-operators

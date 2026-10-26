@@ -143,6 +143,40 @@ On baremetal/OpenStack clusters without a cloud LB controller:
 * See `openshift-gateway-setup/` for MetalLB configuration
 * On cloud clusters, the LB provisions automatically
 
+=== Gateway requests hang while the MaaS API is healthy
+
+The 2026-10-26 recovery on this sandbox found an internally healthy MaaS API, public requests timing out, gateway WASM download failures, and repeated Kuadrant operator liveness failures. The operator had a 200m CPU limit and a 300Mi memory limit. Increasing its resources through the OLM Subscription and reloading the MaaS gateway restored requests. The repository Connectivity Link Subscription now includes that resource headroom.
+
+Check the operator, its WASM service endpoints, and gateway logs before restarting anything:
+
+[source,bash]
+----
+oc get pods -n openshift-operators
+oc get endpointslice -n openshift-operators -l kubernetes.io/service-name=kuadrant-operator-wasm
+oc logs deployment/maas-default-gateway-openshift-default -n openshift-ingress --tail=30
+oc exec deployment/maas-default-gateway-openshift-default -n openshift-ingress -- \
+  pilot-agent request GET 'stats?usedonly'
+----
+
+For the observed operator resource constraint, preserve the rest of the Subscription while applying the resource override:
+
+[source,bash]
+----
+oc patch subscription rhcl-operator -n openshift-operators --type=merge \
+  -p '{"spec":{"config":{"resources":{"requests":{"cpu":"200m","memory":"256Mi"},"limits":{"cpu":"1","memory":"1Gi"}}}}}'
+oc rollout status deployment/kuadrant-operator-controller-manager -n openshift-operators
+----
+
+After the WASM code service is healthy, reload the affected gateway:
+
+[source,bash]
+----
+oc rollout restart deployment/maas-default-gateway-openshift-default -n openshift-ingress
+oc rollout status deployment/maas-default-gateway-openshift-default -n openshift-ingress
+----
+
+Verify public health returns `200`, anonymous model discovery returns `401`, and authorized model discovery and real inference succeed. A `MaaSModelRef` with `RuntimeReady=True` and `GovernanceAttached=False` requires its intended subscription/auth-policy pairing to be restored. Inspect both resources and preserve their existing audiences and quotas. In this recovery, the vLLM Qwen reference had been missing from the existing premium subscription; restoring that reference made all three model references Ready. Real inference then passed for GPT-OSS, Qwen llm-d, and Qwen vLLM.
+
 == Appendix
 
 === Directory Structure

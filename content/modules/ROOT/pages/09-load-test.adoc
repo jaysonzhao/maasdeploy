@@ -91,6 +91,19 @@ The CronJob continues every 20 minutes until it is removed. Completed Jobs are r
 
 The API keys also expire after 90 days by default. If cleanup cannot reach the MaaS API, the script still starts namespace deletion and reports the key-revocation status; any unrevoked demo key then expires automatically.
 
+== Continuous GPT-OSS-20B stress load
+
+For sustained inference saturation, `manifests/09-load-test/gpt-oss-20b-stress/` deploys a continuously running client with 256 concurrent streaming requests and 1,024 output tokens per request. It uses varied synthetic input, a dedicated MaaS subscription, and a projected Kubernetes service-account token that rotates automatically. It prints throughput, latency, TTFT, active requests, and HTTP errors every 30 seconds.
+
+[source,bash]
+----
+./scripts/run-gpt-oss-stress.sh start
+./scripts/run-gpt-oss-stress.sh status
+./scripts/run-gpt-oss-stress.sh stop
+----
+
+This load continues until stopped and can increase latency for other callers of `gpt-oss-20b`. See the bundle README for concurrency/output tuning, GPU utilization commands, and targeted cleanup.
+
 == Deployment inventory
 
 [cols="1,3", options="header"]

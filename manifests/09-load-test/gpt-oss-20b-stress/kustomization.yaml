@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - service-account.yaml
+  - governance.yaml
+  - deployment.yaml
+configMapGenerator:
+  - name: gpt-oss-20b-stress-client
+    namespace: maas-load-test
+    files:
+      - runner.py
+  - name: gpt-oss-20b-stress-settings
+    namespace: maas-load-test
+    literals:
+      - MAAS_BASE_URL=https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com
+      - MAAS_MODEL=gpt-oss-20b
+      - MAAS_SUBSCRIPTION=gpt-oss-20b-stress
+      - CONCURRENCY=256
+      - MAX_TOKENS=1024
+      - PROMPT_RECORDS=64
+      - REQUEST_TIMEOUT_SECONDS=600
+      - REPORT_INTERVAL_SECONDS=30
+      - STARTUP_INTERVAL_SECONDS=0.2
+generatorOptions:
+  labels:
+    app.kubernetes.io/name: gpt-oss-20b-stress
+    app.kubernetes.io/part-of: maas-load-test
