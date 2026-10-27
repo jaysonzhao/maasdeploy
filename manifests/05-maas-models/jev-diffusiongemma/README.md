@@ -6,14 +6,17 @@ API name, not TypeSafe AI's proprietary Jev weights. This example is experimenta
 
 ## Live validation status
 
-On 2026-10-27 the FP8 engine and adapter reached Ready on L40S. Native
-urgent/routine/ambiguous decision tests passed, including `noul`, `choice`,
-and `score`, as did missing-key and malformed-input checks. Authenticated
-native HTTPS calls also passed. The MaaS integration exposed an upstream
-chunked-request parsing limitation; the compatibility wrapper is installed
-in the ConfigMap but the adapter still needs restarting. The OpenShift
-session expired before this final action. **Final MaaS inference validation
-is pending renewed cluster access.** See `evidence/status.json`.
+On 2026-10-27 the FP8 engine and adapter reached Ready on L40S. The complete
+test suite passed: three native urgent/routine/ambiguous cases, an authenticated
+native HTTPS case, and an authenticated MaaS chat case. Each decision case
+covered `noul`, `choice`, and `score`. Missing credentials returned 401,
+malformed native input returned 422, and MaaS model discovery returned the
+published model. The MaaS response included positive prompt-token usage.
+
+The HTTP compatibility wrapper is active and verified end to end. Only the
+decision container was restarted to activate it; the GPU engine and its cache
+stayed running. See `evidence/test-results.json` for actual responses and
+latencies, and `evidence/status.json` for live resource conditions.
 
 ## Reproducibility
 

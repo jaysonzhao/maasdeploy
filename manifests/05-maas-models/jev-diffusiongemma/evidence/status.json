@@ -1,23 +1,62 @@
 {
-  "date": "2026-10-27",
+  "verified_at_utc": "2026-10-27T06:36:11.953942+00:00",
   "cluster": "https://api.cluster-v4vsc.v4vsc.sandbox287.opentlc.com:6443",
   "namespace": "jev-maas",
   "deployment": "jev-diffusiongemma",
-  "last_observed_ready_containers": "2/2",
+  "pod": "jev-diffusiongemma-65b4888ddd-gt7gw",
+  "node": "ip-10-0-17-135.us-east-2.compute.internal",
+  "containers": [
+    {
+      "name": "decision",
+      "ready": true,
+      "restartCount": 1
+    },
+    {
+      "name": "vllm",
+      "ready": true,
+      "restartCount": 0
+    }
+  ],
   "native_decision_tests": "passed",
   "native_https_tests": "passed",
+  "maas_model_discovery": "passed",
+  "maas_inference": "passed",
   "missing_key_status": 401,
+  "https_missing_key_status": 401,
+  "maas_missing_key_status": 401,
   "malformed_input_status": 422,
-  "maas_modelref_last_observed_phase": "Ready",
-  "maas_inference": "pending final retest",
-  "last_maas_inference_failure": "HTTP 400: pinned example adapter could not read chunked request body",
-  "compatibility_wrapper": "ConfigMap applied; adapter restart pending",
-  "blocker": "active OpenShift session expired; oc whoami returns Unauthorized",
+  "maas_modelref_phase": "Ready",
+  "auth_policy_conditions": [
+    {
+      "lastTransitionTime": "2026-10-27T06:21:10Z",
+      "message": "successfully reconciled",
+      "observedGeneration": 1,
+      "reason": "Reconciled",
+      "status": "True",
+      "type": "Ready"
+    },
+    {
+      "lastTransitionTime": "2026-10-27T06:21:10Z",
+      "message": "No conflicting AuthPolicies detected on MaaS-managed HTTPRoutes",
+      "observedGeneration": 1,
+      "reason": "NoConflict",
+      "status": "False",
+      "type": "ConflictingAuthPolicy"
+    }
+  ],
+  "subscription_conditions": [
+    {
+      "lastTransitionTime": "2026-10-27T06:21:10Z",
+      "message": "successfully reconciled",
+      "observedGeneration": 1,
+      "reason": "Reconciled",
+      "status": "True",
+      "type": "Ready"
+    }
+  ],
+  "maas_endpoint": "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/jev-maas/jev-latest/v1/chat/completions",
+  "compatibility_wrapper": "active; end-to-end verified",
   "cache_mode": "ephemeral",
-  "remaining": [
-    "Confirm the mounted ConfigMap has both the wrapper and unchanged vendor source",
-    "Restart only the decision container to preserve the loaded engine and ephemeral cache",
-    "Run test.py including MaaS model discovery and inference",
-    "Update this status with real results"
-  ]
+  "gpu_snapshot_csv": "NVIDIA L40S, 46068 MiB, 39071 MiB, 0 %",
+  "remaining": []
 }

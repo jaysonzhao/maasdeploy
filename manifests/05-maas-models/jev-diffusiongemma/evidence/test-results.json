@@ -1,0 +1,542 @@
+{
+  "time_utc": "2026-10-27T06:34:43.689761+00:00",
+  "cluster": "https://api.cluster-v4vsc.v4vsc.sandbox287.opentlc.com:6443",
+  "cases": [
+    {
+      "path": "direct/systemone",
+      "case": "urgent",
+      "status": 200,
+      "seconds": 1.069,
+      "response": {
+        "model": "dgemma",
+        "answers": {
+          "urgent": {
+            "type": "noul",
+            "noul": 0.9979444770383877
+          },
+          "category": {
+            "type": "choice",
+            "choice": "outage",
+            "probabilities": {
+              "billing": 0.004265970546792455,
+              "outage": 0.9957018016455029,
+              "other": 3.222780770457183e-05
+            },
+            "confidence": 0.9957018016455029
+          },
+          "severity": {
+            "type": "score",
+            "score": 1.9999460965923999,
+            "legend": {
+              "0": "low",
+              "1": "medium",
+              "2": "high"
+            },
+            "probabilities": {
+              "0": 2.6033794555966475e-05,
+              "1": 1.8358184884747668e-06,
+              "2": 0.9999721303869556
+            },
+            "confidence": 0.9999721303869556
+          }
+        },
+        "usage": {
+          "input_tokens": 156,
+          "output_tokens": 17
+        },
+        "diagnostics": {
+          "steps": 1,
+          "stages": [
+            [
+              "urgent",
+              "category",
+              "severity"
+            ]
+          ],
+          "skipped": {},
+          "chunks": [
+            [
+              "urgent",
+              "category",
+              "severity"
+            ]
+          ],
+          "chunk_prompt": "own",
+          "sequential": false,
+          "conditioning": null,
+          "thought": null,
+          "samples": {
+            "n": 1,
+            "tops": [
+              {
+                "urgent": [
+                  "yes",
+                  0.9979444770383877,
+                  0.31358141977208726
+                ],
+                "category": [
+                  "B",
+                  0.9957018016455029,
+                  0.15779016621027833
+                ],
+                "severity": [
+                  "3",
+                  0.9999721303869556,
+                  0.020585476645527526
+                ]
+              }
+            ],
+            "policy": {
+              "mode": "fixed",
+              "n": 1,
+              "extended": null,
+              "first_read_entropy": null
+            }
+          },
+          "timing": {
+            "total_ms": 151.28755569458008,
+            "reads": 1
+          },
+          "prompt_tokens": 156,
+          "questions": {
+            "urgent": {
+              "pos": 6,
+              "entropy": [
+                0.31358141977208726
+              ],
+              "label_mass": 0.6490796522472342,
+              "argmax_is_label": true
+            },
+            "category": {
+              "pos": 10,
+              "entropy": [
+                0.15779016621027833
+              ],
+              "label_mass": 0.8645558863726645,
+              "argmax_is_label": true
+            },
+            "severity": {
+              "pos": 15,
+              "entropy": [
+                0.020585476645527526
+              ],
+              "label_mass": 0.9797710431492401,
+              "argmax_is_label": true
+            }
+          },
+          "engine": "vllm"
+        }
+      }
+    },
+    {
+      "path": "direct/systemone",
+      "case": "routine",
+      "status": 200,
+      "seconds": 1.09,
+      "response": {
+        "model": "dgemma",
+        "answers": {
+          "urgent": {
+            "type": "noul",
+            "noul": 0.00027557825670795015
+          },
+          "category": {
+            "type": "choice",
+            "choice": "other",
+            "probabilities": {
+              "billing": 0.0008095095491709799,
+              "outage": 0.00013643002000079176,
+              "other": 0.9990540604308283
+            },
+            "confidence": 0.9990540604308283
+          },
+          "severity": {
+            "type": "score",
+            "score": 0.0017378541321063452,
+            "legend": {
+              "0": "low",
+              "1": "medium",
+              "2": "high"
+            },
+            "probabilities": {
+              "0": 0.9985116875040025,
+              "1": 0.0012387708598886546,
+              "2": 0.00024954163610884533
+            },
+            "confidence": 0.9985116875040025
+          }
+        },
+        "usage": {
+          "input_tokens": 157,
+          "output_tokens": 17
+        },
+        "diagnostics": {
+          "steps": 1,
+          "stages": [
+            [
+              "urgent",
+              "category",
+              "severity"
+            ]
+          ],
+          "skipped": {},
+          "chunks": [
+            [
+              "urgent",
+              "category",
+              "severity"
+            ]
+          ],
+          "chunk_prompt": "own",
+          "sequential": false,
+          "conditioning": null,
+          "thought": null,
+          "samples": {
+            "n": 1,
+            "tops": [
+              {
+                "urgent": [
+                  "no",
+                  0.9997244217432921,
+                  0.2965541406778969
+                ],
+                "category": [
+                  "C",
+                  0.9990540604308283,
+                  0.20383614805853234
+                ],
+                "severity": [
+                  "1",
+                  0.9985116875040025,
+                  0.08051715113239284
+                ]
+              }
+            ],
+            "policy": {
+              "mode": "fixed",
+              "n": 1,
+              "extended": null,
+              "first_read_entropy": null
+            }
+          },
+          "timing": {
+            "total_ms": 140.9282684326172,
+            "reads": 1
+          },
+          "prompt_tokens": 157,
+          "questions": {
+            "urgent": {
+              "pos": 6,
+              "entropy": [
+                0.2965541406778969
+              ],
+              "label_mass": 0.6570635932904919,
+              "argmax_is_label": true
+            },
+            "category": {
+              "pos": 10,
+              "entropy": [
+                0.20383614805853234
+              ],
+              "label_mass": 0.8257848451261434,
+              "argmax_is_label": true
+            },
+            "severity": {
+              "pos": 15,
+              "entropy": [
+                0.08051715113239284
+              ],
+              "label_mass": 0.9280123855111982,
+              "argmax_is_label": true
+            }
+          },
+          "engine": "vllm"
+        }
+      }
+    },
+    {
+      "path": "direct/systemone",
+      "case": "ambiguous",
+      "status": 200,
+      "seconds": 1.093,
+      "response": {
+        "model": "dgemma",
+        "answers": {
+          "urgent": {
+            "type": "noul",
+            "noul": 0.036887058698028295
+          },
+          "category": {
+            "type": "choice",
+            "choice": "outage",
+            "probabilities": {
+              "billing": 0.03287032114777075,
+              "outage": 0.793877172478801,
+              "other": 0.17325250637342832
+            },
+            "confidence": 0.793877172478801
+          },
+          "severity": {
+            "type": "score",
+            "score": 0.6805088335473457,
+            "legend": {
+              "0": "low",
+              "1": "medium",
+              "2": "high"
+            },
+            "probabilities": {
+              "0": 0.31961939946487544,
+              "1": 0.6802523675229034,
+              "2": 0.00012823301222112586
+            },
+            "confidence": 0.6802523675229034
+          }
+        },
+        "usage": {
+          "input_tokens": 158,
+          "output_tokens": 17
+        },
+        "diagnostics": {
+          "steps": 1,
+          "stages": [
+            [
+              "urgent",
+              "category",
+              "severity"
+            ]
+          ],
+          "skipped": {},
+          "chunks": [
+            [
+              "urgent",
+              "category",
+              "severity"
+            ]
+          ],
+          "chunk_prompt": "own",
+          "sequential": false,
+          "conditioning": null,
+          "thought": null,
+          "samples": {
+            "n": 1,
+            "tops": [
+              {
+                "urgent": [
+                  "no",
+                  0.9631129413019718,
+                  0.8407479890276988
+                ],
+                "category": [
+                  "B",
+                  0.793877172478801,
+                  0.7412178809868003
+                ],
+                "severity": [
+                  "2",
+                  0.6802523675229034,
+                  0.6566510486449914
+                ]
+              }
+            ],
+            "policy": {
+              "mode": "fixed",
+              "n": 1,
+              "extended": null,
+              "first_read_entropy": null
+            }
+          },
+          "timing": {
+            "total_ms": 146.27408981323242,
+            "reads": 1
+          },
+          "prompt_tokens": 158,
+          "questions": {
+            "urgent": {
+              "pos": 6,
+              "entropy": [
+                0.8407479890276988
+              ],
+              "label_mass": 0.4097512261256473,
+              "argmax_is_label": false
+            },
+            "category": {
+              "pos": 10,
+              "entropy": [
+                0.7412178809868003
+              ],
+              "label_mass": 0.693928010679364,
+              "argmax_is_label": true
+            },
+            "severity": {
+              "pos": 15,
+              "entropy": [
+                0.6566510486449914
+              ],
+              "label_mass": 0.9128345538558974,
+              "argmax_is_label": true
+            }
+          },
+          "engine": "vllm"
+        }
+      }
+    },
+    {
+      "path": "https/systemone",
+      "case": "urgent",
+      "status": 200,
+      "seconds": 1.029,
+      "response": {
+        "model": "dgemma",
+        "answers": {
+          "urgent": {
+            "type": "noul",
+            "noul": 0.9979444770383877
+          },
+          "category": {
+            "type": "choice",
+            "choice": "outage",
+            "probabilities": {
+              "billing": 0.004265970546792455,
+              "outage": 0.9957018016455029,
+              "other": 3.222780770457183e-05
+            },
+            "confidence": 0.9957018016455029
+          },
+          "severity": {
+            "type": "score",
+            "score": 1.9999460965923999,
+            "legend": {
+              "0": "low",
+              "1": "medium",
+              "2": "high"
+            },
+            "probabilities": {
+              "0": 2.6033794555966475e-05,
+              "1": 1.8358184884747668e-06,
+              "2": 0.9999721303869556
+            },
+            "confidence": 0.9999721303869556
+          }
+        },
+        "usage": {
+          "input_tokens": 156,
+          "output_tokens": 17
+        },
+        "diagnostics": {
+          "steps": 1,
+          "stages": [
+            [
+              "urgent",
+              "category",
+              "severity"
+            ]
+          ],
+          "skipped": {},
+          "chunks": [
+            [
+              "urgent",
+              "category",
+              "severity"
+            ]
+          ],
+          "chunk_prompt": "own",
+          "sequential": false,
+          "conditioning": null,
+          "thought": null,
+          "samples": {
+            "n": 1,
+            "tops": [
+              {
+                "urgent": [
+                  "yes",
+                  0.9979444770383877,
+                  0.31358141977208726
+                ],
+                "category": [
+                  "B",
+                  0.9957018016455029,
+                  0.15779016621027833
+                ],
+                "severity": [
+                  "3",
+                  0.9999721303869556,
+                  0.020585476645527526
+                ]
+              }
+            ],
+            "policy": {
+              "mode": "fixed",
+              "n": 1,
+              "extended": null,
+              "first_read_entropy": null
+            }
+          },
+          "timing": {
+            "total_ms": 145.5366611480713,
+            "reads": 1
+          },
+          "prompt_tokens": 156,
+          "questions": {
+            "urgent": {
+              "pos": 6,
+              "entropy": [
+                0.31358141977208726
+              ],
+              "label_mass": 0.6490796522472342,
+              "argmax_is_label": true
+            },
+            "category": {
+              "pos": 10,
+              "entropy": [
+                0.15779016621027833
+              ],
+              "label_mass": 0.8645558863726645,
+              "argmax_is_label": true
+            },
+            "severity": {
+              "pos": 15,
+              "entropy": [
+                0.020585476645527526
+              ],
+              "label_mass": 0.9797710431492401,
+              "argmax_is_label": true
+            }
+          },
+          "engine": "vllm"
+        }
+      }
+    },
+    {
+      "path": "maas/chat/completions",
+      "case": "urgent",
+      "status": 200,
+      "seconds": 4.181,
+      "response": {
+        "id": "chatcmpl-1793082905592",
+        "object": "chat.completion",
+        "created": 1793082905,
+        "model": "jev-latest",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "{\n  \"answers\": {\n    \"urgent\": {\n      \"type\": \"noul\",\n      \"label\": \"yes\",\n      \"confidence\": 0.9979444770383877,\n      \"probabilities\": {\n        \"yes\": 0.9979444770383877,\n        \"no\": 0.002055522961612195\n      },\n      \"noul\": 0.9979444770383877\n    },\n    \"category\": {\n      \"type\": \"choice\",\n      \"label\": \"B\",\n      \"confidence\": 0.9957018016455029,\n      \"probabilities\": {\n        \"billing\": 0.004265970546792455,\n        \"outage\": 0.9957018016455029,\n        \"other\": 3.222780770457183e-05\n      },\n      \"choice\": \"outage\"\n    },\n    \"severity\": {\n      \"type\": \"score\",\n      \"label\": \"3\",\n      \"confidence\": 0.9999721303869556,\n      \"probabilities\": {\n        \"low\": 2.6033794555966475e-05,\n        \"medium\": 1.8358184884747668e-06,\n        \"high\": 0.9999721303869556\n      },\n      \"score\": 2.9999460965924,\n      \"level\": \"high\"\n    }\n  },\n  \"diagnostics\": {\n    \"steps\": 1,\n    \"stages\": [\n      [\n        \"urgent\",\n        \"category\",\n        \"severity\"\n      ]\n    ],\n    \"skipped\": {},\n    \"chunks\": [\n      [\n        \"urgent\",\n        \"category\",\n        \"severity\"\n      ]\n    ],\n    \"chunk_prompt\": \"own\",\n    \"sequential\": false,\n    \"conditioning\": null,\n    \"thought\": null,\n    \"samples\": {\n      \"n\": 1,\n      \"tops\": [\n        {\n          \"urgent\": [\n            \"yes\",\n            0.9979444770383877,\n            0.31358141977208726\n          ],\n          \"category\": [\n            \"B\",\n            0.9957018016455029,\n            0.15779016621027833\n          ],\n          \"severity\": [\n            \"3\",\n            0.9999721303869556,\n            0.020585476645527526\n          ]\n        }\n      ],\n      \"policy\": {\n        \"mode\": \"fixed\",\n        \"n\": 1,\n        \"extended\": null,\n        \"first_read_entropy\": null\n      }\n    },\n    \"timing\": {\n      \"total_ms\": 142.5797939300537,\n      \"reads\": 1\n    },\n    \"prompt_tokens\": 156,\n    \"questions\": {\n      \"urgent\": {\n        \"pos\": 6,\n        \"entropy\": [\n          0.31358141977208726\n        ],\n        \"label_mass\": 0.6490796522472342,\n        \"argmax_is_label\": true\n      },\n      \"category\": {\n        \"pos\": 10,\n        \"entropy\": [\n          0.15779016621027833\n        ],\n        \"label_mass\": 0.8645558863726645,\n        \"argmax_is_label\": true\n      },\n      \"severity\": {\n        \"pos\": 15,\n        \"entropy\": [\n          0.020585476645527526\n        ],\n        \"label_mass\": 0.9797710431492401,\n        \"argmax_is_label\": true\n      }\n    },\n    \"engine\": \"vllm\"\n  }\n}"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 156,
+          "completion_tokens": 17,
+          "total_tokens": 173
+        }
+      }
+    }
+  ],
+  "direct_missing_key_status": 401,
+  "malformed_status": 422,
+  "https_missing_key_status": 401,
+  "maas_missing_key_status": 401,
+  "maas_model_discovery_status": 200
+}
