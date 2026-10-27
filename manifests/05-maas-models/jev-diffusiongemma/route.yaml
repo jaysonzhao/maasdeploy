@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: jev-decision
+  namespace: jev-maas
+  annotations:
+    haproxy.router.openshift.io/timeout: 600s
+spec:
+  to:
+    kind: Service
+    name: jev-decision
+  port:
+    targetPort: decisions
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

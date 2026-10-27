@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: jev-image-check
+  namespace: jev-maas
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      serviceAccountName: jev-model
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/hostname: ip-10-0-17-135.us-east-2.compute.internal
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: verify-image
+        image: registry.redhat.io/rhaii-preview/vllm-cuda-rhel9@sha256:24fccf947aa33857611efed0d57aead4efc525c78a882760db5229b702713a1a
+        workingDir: /tmp
+        command:
+        - python
+        - -c
+        args:
+        - "import ast, importlib.metadata as m, importlib.util as u, pathlib\nimport\
+          \ transformers, pybase64\nroot = pathlib.Path(u.find_spec('vllm').origin).parent\n\
+          src = root / 'model_executor/models/diffusion_gemma.py'\nrequired = ('diffusion_seed_canvas',\
+          \ 'diffusion_max_steps',\n            'diffusion_read_only', 'diffusion_pinned',\
+          \ 'diffusion_canvas_length')\ntext = src.read_text() if src.is_file() else\
+          \ ''\nmissing = [k for k in required if k not in text]\nassert not missing,\
+          \ f'Image lacks required engine hooks or inspectable source: {missing}'\n\
+          ast.parse(pathlib.Path('/vllm-workspace/examples/features/structured_diffusion/structured_server.py').read_text())\n\
+          print('vLLM:', m.version('vllm'), 'transformers:', m.version('transformers'))\n\
+          print('Static feature gate passed; require an end-to-end decision test next.')\n"
+        resources:
+          requests:
+            cpu: '1'
+            memory: 1Gi
+          limits:
+            cpu: '2'
+            memory: 4Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: structured
+          mountPath: /vllm-workspace/examples/features/structured_diffusion
+          readOnly: true
+      volumes:
+      - name: structured
+        configMap:
+          name: jev-structured

@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: jev-maas
+resources:
+  - namespace.yaml
+  - workload.yaml
+configMapGenerator:
+  - name: jev-structured
+    files:
+    - structured_server.py=maas_server.py
+    - vendor_structured_server.py=vendor/structured_server.py
+generatorOptions:
+  disableNameSuffixHash: true

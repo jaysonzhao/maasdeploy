@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jev-client
+  namespace: jev-maas
+automountServiceAccountToken: false
+---
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalProvider
+metadata:
+  name: jev-local
+  namespace: jev-maas
+spec:
+  provider: openai
+  endpoint: jev-decision-jev-maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com
+  auth:
+    type: apikey
+    secretRef:
+      name: jev-backend-key
+---
+apiVersion: inference.opendatahub.io/v1alpha1
+kind: ExternalModel
+metadata:
+  name: jev-latest
+  namespace: jev-maas
+spec:
+  modelName: jev-latest
+  externalProviderRefs:
+  - ref:
+      name: jev-local
+    apiFormat: openai-chat
+    targetModel: jev-latest
+    path: /v1/chat/completions
+    weight: 1
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSModelRef
+metadata:
+  name: jev-latest
+  namespace: jev-maas
+  annotations:
+    openshift.io/display-name: JEV-style DiffusionGemma FP8 decisions
+    openshift.io/description: Experimental structured decisions using RedHatAI DiffusionGemma
+      FP8 and a pinned vLLM adapter
+spec:
+  modelRef:
+    kind: ExternalModel
+    name: jev-latest
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSAuthPolicy
+metadata:
+  name: jev-access
+  namespace: models-as-a-service
+spec:
+  modelRefs:
+  - name: jev-latest
+    namespace: jev-maas
+  subjects:
+    users:
+    - system:serviceaccount:jev-maas:jev-client
+---
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSSubscription
+metadata:
+  name: jev-decisions
+  namespace: models-as-a-service
+spec:
+  owner:
+    users:
+    - system:serviceaccount:jev-maas:jev-client
+  priority: 90
+  modelRefs:
+  - name: jev-latest
+    namespace: jev-maas
+    tokenRateLimits:
+    - limit: 100000
+      window: 1m

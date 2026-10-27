@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jev-maas
+  labels:
+    maas.opendatahub.io/gateway-access: 'true'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jev-model
+  namespace: jev-maas
+automountServiceAccountToken: false

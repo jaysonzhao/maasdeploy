@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-10-27",
+  "model": {
+    "id": "RedHatAI/diffusiongemma-26B-A4B-it-FP8-dynamic",
+    "revision": "3b3dae4697494da5a290e9c0461954449e76c4f5",
+    "gated": false
+  },
+  "runtime": {
+    "pull_reference": "registry.redhat.io/rhaii-preview/vllm-cuda-rhel9@sha256:24fccf947aa33857611efed0d57aead4efc525c78a882760db5229b702713a1a",
+    "catalog_image_id": "6ab6a6245f9a48159264bee8",
+    "architecture": "amd64",
+    "static_gate": "passed",
+    "vllm": "0.29.1.dev1248+rhaiv.2.rubin.g5e1f6840c",
+    "transformers": "5.17.0"
+  },
+  "gpu_before_load": {
+    "name": "NVIDIA L40S",
+    "memory_total_mib": 46068,
+    "memory_used_mib": 0,
+    "node": "ip-10-0-17-135.us-east-2.compute.internal"
+  }
+}
