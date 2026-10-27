@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpt-oss-20b-random-stress
+  namespace: maas-load-test
+  labels:
+    app.kubernetes.io/name: gpt-oss-20b-random-stress
+    app.kubernetes.io/part-of: maas-load-test
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gpt-oss-20b-random-stress
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gpt-oss-20b-random-stress
+        app.kubernetes.io/part-of: maas-load-test
+    spec:
+      serviceAccountName: gpt-oss-20b-random-stress
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 15
+      containers:
+        - name: load
+          image: registry.access.redhat.com/ubi9/python-312@sha256:26533737695d39d003558de435f54f52bd54879d8184a0d7038147d1ff3ea9bd
+          imagePullPolicy: IfNotPresent
+          command: [python3, -u, /opt/stress/runner.py]
+          envFrom:
+            - configMapRef:
+                name: gpt-oss-20b-random-stress-settings
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: TOKEN_FILE
+              value: /var/run/maas/token
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+            limits:
+              cpu: "2"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: client
+              mountPath: /opt/stress
+              readOnly: true
+            - name: token
+              mountPath: /var/run/maas
+              readOnly: true
+      volumes:
+        - name: client
+          configMap:
+            name: gpt-oss-20b-random-stress-client
+            defaultMode: 0444
+        - name: token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: https://kubernetes.default.svc
+                  expirationSeconds: 3600

@@ -104,6 +104,28 @@ For sustained inference saturation, `manifests/09-load-test/gpt-oss-20b-stress/`
 
 This load continues until stopped and can increase latency for other callers of `gpt-oss-20b`. See the bundle README for concurrency/output tuning, GPU utilization commands, and targeted cleanup.
 
+=== Additional randomized GPT load
+
+To add a separate load stream against the same `gpt-oss-20b` model, use
+`manifests/09-load-test/gpt-oss-20b-random-stress/`. Each request starts with
+192 random words and varies its task, record count, and record order. The
+default adds 256 concurrent requests with 1,024 output tokens each, using a
+separate service account and MaaS subscription.
+
+[source,bash]
+----
+./scripts/run-gpt-oss-random-stress.sh start
+./scripts/run-gpt-oss-random-stress.sh status
+./scripts/run-gpt-oss-random-stress.sh stop
+----
+
+The original stress deployment continues independently. Random prefixes reduce
+prefix reuse but do not guarantee balanced dispatch. GPT currently routes
+through a Kubernetes Service; the client does not enable llm-d scheduling.
+Filter gateway logs by `maas-gpt-oss-random-stress/1.0` to identify this client's
+completed requests and their upstream pod addresses. See its README for tuning
+and targeted cleanup.
+
 == Deployment inventory
 
 [cols="1,3", options="header"]
