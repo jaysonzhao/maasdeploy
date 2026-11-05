@@ -35,7 +35,7 @@ oc apply -k manifests/05-maas-models/qwen25-7b-instruct/vllm/
 - OpenShift AI/KServe must serve `serving.kserve.io/v1alpha2` `LLMInferenceService` resources. The llm-d variant also needs compatible llm-d scheduler/router support.
 - The `llm` namespace must exist and have the `opendatahub.io/generated-namespace=true`, `maas.opendatahub.io/gateway-access=true`, and `opendatahub.io/dashboard=true` labels. The setup scripts add these labels.
 - The `maas-default-gateway` Gateway must exist in `openshift-ingress`.
-- The shared `l40s-shared` hardware profile must exist in `redhat-ods-applications`; the target node must have NVIDIA L40S time slicing and the matching `nvidia.com/device-plugin.config=NVIDIA-L40S` and `nvidia.com/gpu.present=true` labels. The llm-d deployment additionally selects `maas.opendatahub.io/qwen-pair=true`.
+- The shared `l40s-shared` hardware profile must exist in `redhat-ods-applications`; the target node must have NVIDIA L40S time slicing and the matching `nvidia.com/device-plugin.config=NVIDIA-L40S` and `nvidia.com/gpu.present=true` labels. The llm-d deployment spreads its GPU workers across nodes and excludes workers hosting GPT-OSS or Nemotron. Its CPU-only scheduler does not participate in this exclusion.
 - Both LLMInferenceServices reference model-connection Secrets in `llm`: `secret-yqrd37` for llm-d and `secret-yi3ywx` for vLLM. The secret values are not in this repository. For another cluster, create/select the appropriate connection and update the reference name if needed.
 - The llm-d service uses the RHOAI 3.5 llm-d presets in `redhat-ods-applications`. These shared presets, the hardware profile, namespace, and Gateway are not managed by this bundle.
 
@@ -45,12 +45,30 @@ Both model services use the same OCI model artifact and request two replicas, ea
 
 | Serving path | Resource name | vLLM arguments | Placement |
 |---|---|---|---|
-| llm-d | `redhataiqwen25-7b-instruct` | `--gpu-memory-utilization=0.84 --max-model-len=32768 --kv-cache-memory-bytes=2684354560` | NVIDIA L40S plus `maas.opendatahub.io/qwen-pair=true` |
+| llm-d | `redhataiqwen25-7b-instruct` | `--gpu-memory-utilization=0.45 --max-model-len=32768 --kv-cache-memory-bytes=2684354560` | NVIDIA L40S; separate GPU workers; avoid GPT-OSS and Nemotron |
 | Single-node vLLM | `redhataiqwen25-7b-instruct-vll` | `--gpu-memory-utilization=0.45 --max-model-len=32768 --kv-cache-memory-bytes=2684354560` | NVIDIA L40S |
 
 These are captured deployment settings, not a GPU memory guarantee. Time slicing allows multiple workloads to share GPU scheduling capacity; it does not partition VRAM. The values above do not reserve GPU memory, so inspect the physical L40S's available memory before deploying both variants or restarting workloads.
 
 The manifests contain desired-state CRs only. KServe/RHOAI creates the workload Deployments and Services; llm-d controllers also create the scheduler, InferencePool, endpoint picker and related Services, and routing resources. Generated status, UIDs, resource versions, and controller-owned objects are omitted. MaaS authorization policies and subscriptions remain independent governance resources and are not changed by these manifests.
+
+## Recovery after GPU worker replacement
+
+On 2026-11-05 a Qwen llm-d replica crash-looped on the same L40S as GPT-OSS.
+Its log reported only 2.49 GiB free against a 37.29 GiB startup budget at
+`--gpu-memory-utilization=0.84`. The llm-d manifest now uses 0.45, retaining
+the explicit 2.5 GiB KV cache and 32,768-token context. Time slicing does not
+make a GPU occupied by a large model suitable for another model: required
+pod anti-affinity excludes GPT-OSS, Nemotron and another Qwen llm-d worker.
+The selector also requires a model-server component label so the CPU router
+does not accidentally block the remaining GPU node.
+
+When all suitable shared-GPU slots are occupied, a normal rolling update can
+stall waiting for a spare GPU. Roll through one llm-d replica, wait until the
+replacement Deployment finishes rolling out, then restore two replicas.
+Check capacity and availability before doing this; the repair started with
+only one healthy replica. Keep the final desired replica count at two and
+confirm the matching MaaSModelRef becomes Ready.
 
 ## Verify
 
@@ -60,4 +78,4 @@ oc get maasmodelref -n llm
 oc get pods -n llm -o wide
 ```
 
-Check the `Ready` condition for each selected `LLMInferenceService` and its matching `MaaSModelRef`. Verify both replicas schedule to the intended L40S node. The setup scripts wait for the selected service and reference readiness for up to ten minutes and print their status if either remains unavailable.
+Check the `Ready` condition for each selected `LLMInferenceService` and its matching `MaaSModelRef`. Verify the llm-d replicas schedule to different suitable L40S nodes. The setup scripts wait for the selected service and reference readiness for up to ten minutes and print their status if either remains unavailable.

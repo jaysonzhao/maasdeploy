@@ -29,7 +29,7 @@ spec:
       - name: main
         env:
           - name: VLLM_ADDITIONAL_ARGS
-            value: --gpu-memory-utilization=0.84 --max-model-len=32768 --kv-cache-memory-bytes=2684354560
+            value: --gpu-memory-utilization=0.45 --max-model-len=32768 --kv-cache-memory-bytes=2684354560
         resources:
           requests:
             cpu: "2"
@@ -40,6 +40,25 @@ spec:
             memory: 36Gi
             nvidia.com/gpu: "1"
     nodeSelector:
-      maas.opendatahub.io/qwen-pair: "true"
       nvidia.com/device-plugin.config: NVIDIA-L40S
       nvidia.com/gpu.present: "true"
+    # Time slicing does not partition VRAM. Keep llm-d replicas apart and
+    # avoid models that already occupy most of the physical L40S memory.
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - gpt-oss-20b
+                    - nemotron-safety-guard-vllm
+                    - redhataiqwen25-7b-instruct
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - llminferenceservice-workload
+                    - model-server
+            namespaces: [llm]
+            topologyKey: kubernetes.io/hostname
