@@ -1,0 +1,37 @@
+{
+  "verified_at_utc": "2026-11-09T03:51:28.440636+00:00",
+  "root_cause": "MaaS gateway policy WASM fetch failure after restart; authenticated and unauthenticated requests stalled before authentication",
+  "recovery": "verified managed artifact checksum, restarted only MaaS gateway, policy module fetch succeeded",
+  "discovery_http_status": {
+    "llmd_authenticated": 200,
+    "vllm_authenticated": 200,
+    "unauthenticated": 401
+  },
+  "jobs": [
+    {
+      "name": "qwen-llmd-repair-check",
+      "complete": true,
+      "reported_requests": 100,
+      "request_error_lines": 0,
+      "start_time": "2026-11-09T03:48:10Z",
+      "completion_time": "2026-11-09T03:49:59Z"
+    },
+    {
+      "name": "qwen-vllm-repair-check",
+      "complete": true,
+      "reported_requests": 100,
+      "request_error_lines": 0,
+      "start_time": "2026-11-09T03:48:12Z",
+      "completion_time": "2026-11-09T03:50:09Z"
+    }
+  ],
+  "schedule": "*/2 * * * *",
+  "discovery_retry_checks": [
+    "transport and 5xx recovery",
+    "immediate 401 propagation",
+    "no inference POST retry",
+    "five-attempt bounded exhaustion"
+  ],
+  "models_changed": false,
+  "credentials_rotated": false
+}

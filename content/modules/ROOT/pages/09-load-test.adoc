@@ -91,6 +91,25 @@ The CronJob continues every 20 minutes until it is removed. Completed Jobs are r
 
 The API keys also expire after 90 days by default. If cleanup cannot reach the MaaS API, the script still starts namespace deletion and reports the key-revocation status; any unrevoked demo key then expires automatically.
 
+== Qwen multi-turn load
+
+`manifests/09-load-test/qwen-multiturn/` contains the Qwen llm-d and regular
+vLLM multi-turn CronJobs. Both run every two minutes with 10 conversations,
+10 turns, and 8 parallel workers. They reuse the existing MaaS credential
+Secret and verify the ingress TLS certificate. The client retries transient
+model-discovery errors with a bounded backoff; inference POSTs are not retried.
+
+[source,bash]
+----
+oc apply -k manifests/09-load-test/qwen-multiturn/
+oc get cronjob,job,pod -n maas-load-test
+----
+
+See the bundle README for prerequisites and the 2026-11-09 gateway recovery.
+A disconnected discovery request can indicate a shared gateway policy-module
+failure even when the model and MaaS reference report Ready. Verify actual
+request counts and errors in benchmark logs as well as Job completion.
+
 == Continuous GPT-OSS-20B stress load
 
 For sustained inference saturation, `manifests/09-load-test/gpt-oss-20b-stress/` deploys a continuously running client with 256 concurrent streaming requests and 1,024 output tokens per request. It uses varied synthetic input, a dedicated MaaS subscription, and a projected Kubernetes service-account token that rotates automatically. It prints throughput, latency, TTFT, active requests, and HTTP errors every 30 seconds.

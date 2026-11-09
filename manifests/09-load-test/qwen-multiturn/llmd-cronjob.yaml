@@ -1,0 +1,88 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qwen-llmd-multiturn
+  namespace: maas-load-test
+  labels:
+    app.kubernetes.io/part-of: qwen-multiturn
+    app.kubernetes.io/name: qwen-llmd-multiturn
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: qwen-llmd-multiturn
+        app.kubernetes.io/part-of: maas-multiturn-benchmark
+    spec:
+      activeDeadlineSeconds: 240
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: qwen-llmd-multiturn
+            app.kubernetes.io/part-of: maas-multiturn-benchmark
+        spec:
+          automountServiceAccountToken: false
+          containers:
+          - args:
+            - https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/redhataiqwen25-7b-instruct/v1
+            - --conversations
+            - '10'
+            - --turns
+            - '10'
+            - --parallel
+            - '8'
+            - --max-tokens
+            - '96'
+            - --min-delay
+            - '0.1'
+            - --max-delay
+            - '0.5'
+            - --timeout
+            - '60'
+            command:
+            - python
+            - -u
+            - /opt/maas-client/runner.py
+            env:
+            - name: MAAS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: api-key
+                  name: maas-multiturn-auth-20261002
+            image: quay.io/hayesphilip/multi-turn-benchmark@sha256:239c2a41220698b355b63c9c7c58da87069daaac48114b00a9c854df962a58fa
+            imagePullPolicy: IfNotPresent
+            name: benchmark
+            resources:
+              limits:
+                cpu: '1'
+                memory: 512Mi
+              requests:
+                cpu: 250m
+                memory: 256Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              seccompProfile:
+                type: RuntimeDefault
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - name: client
+              mountPath: /opt/maas-client
+              readOnly: true
+          restartPolicy: Never
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - name: client
+            configMap:
+              name: qwen-multiturn-client
+      ttlSecondsAfterFinished: 3600
+  schedule: '*/2 * * * *'
+  startingDeadlineSeconds: 30
+  successfulJobsHistoryLimit: 3
+  suspend: false
