@@ -31,3 +31,7 @@ Use the end-to-end setup script to deploy one path or both:
 The Qwen choices are applied even when another `LLMInferenceService` already exists in `llm`. `qwen-pair` applies both configurations together. For a direct Kustomize apply, use `oc apply -k manifests/05-maas-models/qwen25-7b-instruct/`; use the `llm-d/` or `vllm/` subfolder to apply one path.
 
 Review the folder README for cluster prerequisites, Secret references, and the captured resource settings. NVIDIA time slicing allocates logical GPU shares; it does not partition or reserve VRAM. The bundle contains desired-state CRs, not controller-generated Deployments, Services, InferencePools, or HTTPRoutes. MaaS authorization policies and subscriptions remain separate governance resources.
+
+## Real CPU TinyLlama
+
+See [tinyllama-cpu/README.md](tinyllama-cpu/README.md) for the OpenShift AI 3.5 preserving setup workflow, AVX2 CPU HardwareProfile, modelcar deployment, and free/premium subscriptions.

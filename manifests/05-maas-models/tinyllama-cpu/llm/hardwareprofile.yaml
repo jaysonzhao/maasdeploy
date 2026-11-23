@@ -1,0 +1,32 @@
+apiVersion: infrastructure.opendatahub.io/v1
+kind: HardwareProfile
+metadata:
+  name: tinyllama-cpu
+  namespace: redhat-ods-applications
+  annotations:
+    opendatahub.io/display-name: TinyLlama CPU (4 cores / 12 GiB)
+    opendatahub.io/description: 'CPU-only TinyLlama: default 4 CPU / 12 GiB, limits
+      6 CPU / 16 GiB; amd64 workers with AVX2.'
+    opendatahub.io/disabled: 'false'
+  labels:
+    opendatahub.io/dashboard: 'true'
+spec:
+  identifiers:
+  - identifier: cpu
+    displayName: CPU
+    resourceType: CPU
+    minCount: 4
+    defaultCount: 4
+    maxCount: 6
+  - identifier: memory
+    displayName: Memory
+    resourceType: Memory
+    minCount: 12Gi
+    defaultCount: 12Gi
+    maxCount: 16Gi
+  scheduling:
+    type: Node
+    node:
+      nodeSelector:
+        node-role.kubernetes.io/worker: ''
+        kubernetes.io/arch: amd64

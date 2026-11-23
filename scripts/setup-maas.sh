@@ -20,7 +20,7 @@
 #   ./scripts/setup-maas.sh [OPTIONS]
 #
 # Options:
-#   --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
+#   --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, tinyllama-cpu, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
 #   --from-phase <N>     Start from phase N (default: 0)
 #   --skip-models        Skip Phase 5 (model deployment)
 #   --skip-verify        Skip Phase 6 (verification)
@@ -86,7 +86,7 @@ installation through model deployment and verification. Each phase is
 idempotent  - re-running skips what's already done.
 
 Options:
-  --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
+  --model <name>       Model: simulator, granite-tiny-gpu, gpt-oss-20b, tinyllama-cpu, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
   --from-phase <N>     Start from phase N (0-9, default: 0)
   --skip-models        Skip Phase 5 (model deployment)
   --skip-verify        Skip Phase 6 (verification)
@@ -98,7 +98,8 @@ Options:
   --dry-run            Preview without applying
   -h, --help           Show this help message
 
-Qwen model selections:
+Explicit model selections:
+  tinyllama-cpu        Real TinyLlama inference on AVX2 CPU (no GPU)
   qwen-llmd            Apply only the llm-d Qwen deployment
   qwen-vllm            Apply only the single-node vLLM Qwen deployment
   qwen-pair            Apply both Qwen deployments, even if another model exists
@@ -107,8 +108,8 @@ Phases:
   0  Preflight          Detect cluster state, decide which phases to run
   1  Operators          Install required operator subscriptions (RHOAI, RHCL, etc.)
   2  Platform config    Kuadrant, UWM, GatewayClass, Gateway
-  3  RHOAI config       DSC with modelsAsService: Managed, Dashboard flags
-  4  MaaS platform      PostgreSQL secrets/deployment, Authorino TLS
+  3  MaaS platform      PostgreSQL secrets/deployment, Authorino TLS
+  4  RHOAI config       DSC MaaS management state, Dashboard flags
   5  Deploy model       Auto-detect GPU, apply model Kustomize manifests
   6  Verify             6-phase E2E verification (API, auth, rate limits)
   7  Observability      Tempo + OpenTelemetry + COO + Gateway telemetry (only with --with-observability)
@@ -125,6 +126,15 @@ EOF
         *) log_error "Unknown option: $1"; exit 1 ;;
     esac
 done
+
+# Fresh 3.5 installations use the canonical AI Gateway API and infra namespace.
+# Keep the legacy workflow available for existing older clusters and Phase 5 resumes.
+if [ "$MODEL" = "tinyllama-cpu" ] && [ "$FROM_PHASE" -lt 5 ]; then
+    log_error "For a fresh CPU deployment on OpenShift AI 3.5, use:"
+    log_error "python3 scripts/setup-maas-cpu.py --expected-server <authorized-api-url>"
+    log_error "On an installed MaaS cluster, use --from-phase 5 --model tinyllama-cpu --skip-verify."
+    exit 1
+fi
 
 run_cmd() {
     if [ "$DRY_RUN" = true ]; then
@@ -713,7 +723,7 @@ fi
 if should_run 5 && [ "$SKIP_MODELS" = false ]; then
     log_phase 5 "Deploy Model"
 
-    if [ "$HAS_MODELS" = true ] && [[ "$MODEL" != "qwen-llmd" && "$MODEL" != "qwen-vllm" && "$MODEL" != "qwen-pair" ]]; then
+    if [ "$HAS_MODELS" = true ] && [[ "$MODEL" != "qwen-llmd" && "$MODEL" != "qwen-vllm" && "$MODEL" != "qwen-pair" && "$MODEL" != "tinyllama-cpu" ]]; then
         log_info "Models already deployed in llm namespace:"
         oc get llminferenceservice -n llm --no-headers 2>/dev/null || true
         log_info "Skipping the default model because a model already exists; use an explicit qwen-* selection to add the Qwen deployment(s)"
@@ -735,7 +745,7 @@ if should_run 5 && [ "$SKIP_MODELS" = false ]; then
             fi
         fi
 
-        VALID_MODELS="simulator granite-tiny-gpu gpt-oss-20b qwen-llmd qwen-vllm qwen-pair"
+        VALID_MODELS="simulator granite-tiny-gpu gpt-oss-20b tinyllama-cpu qwen-llmd qwen-vllm qwen-pair"
         if ! echo "$VALID_MODELS" | grep -qw "$MODEL"; then
             log_error "Unknown model: $MODEL (valid: $VALID_MODELS)"
             exit 1
@@ -743,6 +753,10 @@ if should_run 5 && [ "$SKIP_MODELS" = false ]; then
 
         MODEL_SERVICE_NAMES=()
         case "$MODEL" in
+            tinyllama-cpu)
+                MODEL_DIR="$MANIFESTS_DIR/05-maas-models/tinyllama-cpu"
+                MODEL_SERVICE_NAMES=(tinyllama-1-1b-chat-v1-0)
+                ;;
             qwen-llmd)
                 MODEL_DIR="$MANIFESTS_DIR/05-maas-models/qwen25-7b-instruct/llm-d"
                 MODEL_SERVICE_NAMES=(redhataiqwen25-7b-instruct)
@@ -776,7 +790,7 @@ if should_run 5 && [ "$SKIP_MODELS" = false ]; then
 
         if [ "$DRY_RUN" = false ]; then
             if [ "${#MODEL_SERVICE_NAMES[@]}" -gt 0 ]; then
-                log_info "Waiting for requested Qwen LLMInferenceService and MaaSModelRef resources (up to 10 minutes)..."
+                log_info "Waiting for requested model LLMInferenceService and MaaSModelRef resources (up to 10 minutes)..."
                 TIMEOUT=600
                 ELAPSED=0
                 QWEN_RESOURCES_READY=false
@@ -792,15 +806,15 @@ if should_run 5 && [ "$SKIP_MODELS" = false ]; then
                         fi
                     done
                     if [ "$QWEN_RESOURCES_READY" = true ]; then
-                        log_info "All selected Qwen services and MaaSModelRefs are Ready"
+                        log_info "All selected model services and MaaSModelRefs are Ready"
                         break
                     fi
                     sleep 10
                     ELAPSED=$((ELAPSED + 10))
-                    [ $((ELAPSED % 60)) -eq 0 ] && log_info "  Still waiting for selected Qwen resources... (${ELAPSED}s)"
+                    [ $((ELAPSED % 60)) -eq 0 ] && log_info "  Still waiting for selected model resources... (${ELAPSED}s)"
                 done
                 if [ "$QWEN_RESOURCES_READY" != true ]; then
-                    log_warn "Selected Qwen resources did not all become Ready within ${TIMEOUT}s"
+                    log_warn "Selected model resources did not all become Ready within ${TIMEOUT}s"
                     for model_name in "${MODEL_SERVICE_NAMES[@]}"; do
                         oc get llminferenceservice "$model_name" -n llm 2>/dev/null || true
                         oc get maasmodelref "$model_name" -n llm 2>/dev/null || true

@@ -1,0 +1,41 @@
+# CPU/memory requests, limits, and node selector are rendered from hardwareprofile.yaml by Kustomize.
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: tinyllama-1-1b-chat-v1-0
+  namespace: llm
+  annotations:
+    openshift.io/display-name: TinyLlama-1.1B-Chat-v1.0 (CPU)
+    openshift.io/description: TinyLlama chat model served on AVX2 CPUs with MaaS free
+      and premium subscriptions.
+    opendatahub.io/model-type: generative
+    opendatahub.io/hardware-profile-name: tinyllama-cpu
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+  labels:
+    opendatahub.io/dashboard: 'true'
+spec:
+  baseRefs:
+  - name: tinyllama-cpu
+  model:
+    name: tinyllama-1.1b-chat-v1.0
+    uri: oci://quay.io/redhat-ai-services/modelcar-catalog:tinyllama-1.1b-chat-v1.0
+  replicas: 1
+  router:
+    gateway:
+      refs:
+      - name: maas-default-gateway
+        namespace: openshift-ingress
+    route: {}
+  template:
+    containers:
+    - name: main
+      env:
+      - name: VLLM_CPU_KVCACHE_SPACE
+        value: '1'
+      - name: OMP_NUM_THREADS
+        value: '4'
+      - name: VLLM_CPU_OMP_THREADS_BIND
+        value: auto
+      - name: VLLM_ADDITIONAL_ARGS
+        value: --dtype float32 --max-model-len 2048 --max-num-seqs 8 --enforce-eager
+      resources: {}

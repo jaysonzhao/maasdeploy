@@ -1,7 +1,7 @@
 ---
 name: install-maas
 description: Deploy, resume, verify, observe, or remove Red Hat OpenShift AI Models as a Service (MaaS) resources using this repository's scripts and manifests.
-argument-hint: "[--model simulator|granite-tiny-gpu|gpt-oss-20b|qwen-llmd|qwen-vllm|qwen-pair|auto] [--from-phase N] [--with-observability] [--with-external-models] [--with-mlflow]"
+argument-hint: "[--model simulator|granite-tiny-gpu|gpt-oss-20b|tinyllama-cpu|qwen-llmd|qwen-vllm|qwen-pair|auto] [--from-phase N] [--with-observability] [--with-external-models] [--with-mlflow]"
 allowed-tools: Bash(oc *), Bash(./*), Bash(envsubst *), Bash(curl *), Bash(jq *), Bash(grep *), Bash(ls *), Bash(cat *), Bash(date *), Bash(mkdir *), Bash(echo *), Bash(bash *), AskUserQuestion
 ---
 
@@ -48,6 +48,20 @@ Check available script options first when details may have changed:
 
 The script checks the current `oc` login, discovers the cluster domain and MaaS API namespace, detects installed components, and runs the requested phases. Re-running is designed to skip components already detected as ready.
 
+### Existing OpenShift AI 3.5 with real CPU inference
+
+For a fresh MaaS installation on an existing OpenShift AI 3.5 cluster, use the preserving workflow in `scripts/setup-maas-cpu.py` and read [`manifests/05-maas-models/tinyllama-cpu/README.md`](../../../manifests/05-maas-models/tinyllama-cpu/README.md). It uses the canonical `spec.components.aigateway.modelsAsAService` API and the `redhat-ai-gateway-infra` namespace for the database secret. Do not apply older whole-DSC or operator umbrella manifests over the user's existing AI installation.
+
+```bash
+python3 scripts/setup-maas-cpu.py --expected-server https://api.<authorized-cluster>:6443
+```
+
+This deploys the requested TinyLlama modelcar on CPU with free/premium MaaS subscriptions. Verify AVX2 capability and registry access. The `tinyllama-cpu` HardwareProfile in `redhat-ods-applications` is the source for requests (4 CPU / 12 GiB), limits (6 CPU / 16 GiB), and worker scheduling. Kustomize replacements render these settings into the LLMInferenceService, whose hardware-profile annotations link it to the dashboard. Apply the Kustomize directory, not the unrendered model YAML. HardwareProfile annotations alone do not allocate resources. No accelerator identifier or GPU resource is needed.
+
+Use `--platform-only` or `--model-only` to resume. On an installed MaaS cluster, `scripts/deploy-model.sh --model tinyllama-cpu` and `scripts/setup-maas.sh --from-phase 5 --model tinyllama-cpu --skip-verify` also apply this model bundle. The legacy full orchestrator rejects a fresh `tinyllama-cpu` install and directs callers to the preserving workflow.
+
+Check live dashboard schemas: `maasAuthPolicies` is deprecated and cannot be newly set in the observed 3.5.3 installation, even though some 3.5 docs still show it. Enable supported `modelAsService`, `vLLMDeploymentOnMaaS`, and `genAiStudio` fields without replacing unrelated settings. Use the current ingress/public CA trust for MaaS HTTPS; the API server CA may differ.
+
 Recommended CPU-only demo:
 
 ```bash
@@ -57,6 +71,7 @@ Recommended CPU-only demo:
 For GPU clusters, use `--model auto` (the default) or select a model explicitly:
 
 - `simulator`: CPU-only validation and demos.
+- `tinyllama-cpu`: real TinyLlama-1.1B chat inference on CPU; use the 3.5 preserving workflow above for a fresh installation.
 - `granite-tiny-gpu`: smaller GPU workload.
 - `gpt-oss-20b`: larger GPU workload.
 - `qwen-llmd`: two-replica `RedHatAI/Qwen2.5-7B-Instruct` with the llm-d router/scheduler configuration.

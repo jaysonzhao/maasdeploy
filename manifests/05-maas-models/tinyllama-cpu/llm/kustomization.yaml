@@ -1,0 +1,67 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- hardwareprofile.yaml
+- runtime.yaml
+- model.yaml
+replacements:
+- source:
+    kind: HardwareProfile
+    name: tinyllama-cpu
+    fieldPath: spec.identifiers.[identifier=cpu].defaultCount
+  targets:
+  - select:
+      kind: LLMInferenceService
+      name: tinyllama-1-1b-chat-v1-0
+    fieldPaths:
+    - spec.template.containers.[name=main].resources.requests.cpu
+    options:
+      create: true
+- source:
+    kind: HardwareProfile
+    name: tinyllama-cpu
+    fieldPath: spec.identifiers.[identifier=cpu].maxCount
+  targets:
+  - select:
+      kind: LLMInferenceService
+      name: tinyllama-1-1b-chat-v1-0
+    fieldPaths:
+    - spec.template.containers.[name=main].resources.limits.cpu
+    options:
+      create: true
+- source:
+    kind: HardwareProfile
+    name: tinyllama-cpu
+    fieldPath: spec.identifiers.[identifier=memory].defaultCount
+  targets:
+  - select:
+      kind: LLMInferenceService
+      name: tinyllama-1-1b-chat-v1-0
+    fieldPaths:
+    - spec.template.containers.[name=main].resources.requests.memory
+    options:
+      create: true
+- source:
+    kind: HardwareProfile
+    name: tinyllama-cpu
+    fieldPath: spec.identifiers.[identifier=memory].maxCount
+  targets:
+  - select:
+      kind: LLMInferenceService
+      name: tinyllama-1-1b-chat-v1-0
+    fieldPaths:
+    - spec.template.containers.[name=main].resources.limits.memory
+    options:
+      create: true
+- source:
+    kind: HardwareProfile
+    name: tinyllama-cpu
+    fieldPath: spec.scheduling.node.nodeSelector
+  targets:
+  - select:
+      kind: LLMInferenceService
+      name: tinyllama-1-1b-chat-v1-0
+    fieldPaths:
+    - spec.template.nodeSelector
+    options:
+      create: true

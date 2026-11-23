@@ -11,7 +11,7 @@
 #   ./scripts/deploy-model.sh [OPTIONS]
 #
 # Options:
-#   --model <name>  Model to deploy: simulator, granite-tiny-gpu, gpt-oss-20b, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
+#   --model <name>  Model to deploy: simulator, granite-tiny-gpu, gpt-oss-20b, tinyllama-cpu, qwen-llmd, qwen-vllm, qwen-pair, auto (default: auto)
 #   --dry-run       Preview without applying
 #   -h, --help      Show this help message
 #
@@ -51,6 +51,7 @@ Options:
   --model <name>  Model to deploy (default: auto)
                   Available models:
                     simulator       CPU-only mock model (~256Mi RAM)
+                    tinyllama-cpu    Real TinyLlama inference on AVX2 CPU (no GPU)
                     granite-tiny-gpu  Granite 4.0-h-tiny FP8 (1 GPU, 24Gi RAM)
                     gpt-oss-20b     OpenAI gpt-oss-20b (1 GPU, 60Gi RAM)
                     qwen-llmd       Qwen 2.5 7B using the llm-d serving path
@@ -117,7 +118,7 @@ if [ "$MODEL" = "auto" ]; then
 fi
 
 # Validate selected model
-VALID_MODELS="simulator granite-tiny-gpu gpt-oss-20b qwen-llmd qwen-vllm qwen-pair"
+VALID_MODELS="simulator granite-tiny-gpu gpt-oss-20b tinyllama-cpu qwen-llmd qwen-vllm qwen-pair"
 if ! echo "$VALID_MODELS" | grep -qw "$MODEL"; then
     log_error "Unknown model: $MODEL"
     log_error "Valid models: $VALID_MODELS"
@@ -126,6 +127,10 @@ fi
 
 MODEL_SERVICE_NAMES=()
 case "$MODEL" in
+    tinyllama-cpu)
+        MODEL_DIR="$MODELS_DIR/tinyllama-cpu"
+        MODEL_SERVICE_NAMES=(tinyllama-1-1b-chat-v1-0)
+        ;;
     qwen-llmd)
         MODEL_DIR="$MODELS_DIR/qwen25-7b-instruct/llm-d"
         MODEL_SERVICE_NAMES=(redhataiqwen25-7b-instruct)
@@ -190,7 +195,7 @@ PODS_READY=false
 PHASE=""
 
 if [ "${#MODEL_SERVICE_NAMES[@]}" -gt 0 ]; then
-    log_info "Waiting for selected Qwen LLMInferenceService and MaaSModelRef resources to become Ready..."
+    log_info "Waiting for selected model LLMInferenceService and MaaSModelRef resources to become Ready..."
     TIMEOUT=600
     ELAPSED=0
     QWEN_RESOURCES_READY=false
@@ -206,17 +211,17 @@ if [ "${#MODEL_SERVICE_NAMES[@]}" -gt 0 ]; then
             fi
         done
         if [ "$QWEN_RESOURCES_READY" = true ]; then
-            log_info "All selected Qwen services and MaaSModelRefs are Ready"
+            log_info "All selected model services and MaaSModelRefs are Ready"
             break
         fi
         sleep 10
         ELAPSED=$((ELAPSED + 10))
         if [ $((ELAPSED % 60)) -eq 0 ]; then
-            log_info "Still waiting for selected Qwen resources... (${ELAPSED}s elapsed)"
+            log_info "Still waiting for selected model resources... (${ELAPSED}s elapsed)"
         fi
     done
     if [ "$QWEN_RESOURCES_READY" != true ]; then
-        log_warn "Selected Qwen resources did not all become Ready within ${TIMEOUT}s"
+        log_warn "Selected model resources did not all become Ready within ${TIMEOUT}s"
         for model_name in "${MODEL_SERVICE_NAMES[@]}"; do
             oc get llminferenceservice "$model_name" -n llm 2>/dev/null || true
             oc get maasmodelref "$model_name" -n llm 2>/dev/null || true
